@@ -349,20 +349,27 @@ async function loadFiles() {
     f.pre = f.name.trim().slice(0, 2).toLocaleUpperCase('vi');   // 2 ký tự đầu tên file
     f.unit = unitName(f.name);                                    // tên đơn vị sau dấu "--"
   });
-  // F2 = file có "_2" trong số thẻ (VD 3BHCM70_2) → không hiển thị riêng, không tính thống kê,
-  // mà gắn vào F1 cùng số thẻ không có "_2" (VD 3BHCM70) để hiện ảnh bên dưới ảnh F1.
-  const isF2 = f => f.short.includes(F2_MARK);
-  const f1s = all.filter(f => !isF2(f));
-  const bySkey = new Map();
-  f1s.forEach(f => { f.f2 = null; if (!bySkey.has(f.short)) bySkey.set(f.short, []); bySkey.get(f.short).push(f); });
-  const orphans = [];
-  all.filter(isF2).forEach(f2 => {
-    const cands = bySkey.get(f2.short.replace(F2_MARK, '')) || [];
-    const f1 = cands.find(f => f.unit === f2.unit && !f.f2) || cands.find(f => !f.f2);
-    if (f1) { f1.f2 = f2; f1.key += ' ' + f2.key; }   // tìm "..._2" cũng ra F1
-    else orphans.push(f2);                               // F2 không có F1: vẫn hiện như file thường
+  // F2 = file có "_2" trong số thẻ (VD 3BHCM70_2): KHÔNG hiển thị, KHÔNG tính thống kê,
+  // chỉ hiện ảnh bên dưới F1 cùng số thẻ (VD 3BHCM70).
+  // Thẻ bị trùng (cùng số thẻ upload nhiều lần): chỉ giữ file MỚI NHẤT.
+  const isF2   = f => f.short.includes(F2_MARK);
+  const baseOf = f => f.short.split(F2_MARK).join('').replace(/\s+/g, '');
+  const newestFirst = (a, b) => (b.date - a.date) || b.name.localeCompare(a.name);
+  const f1 = new Map(), f2 = new Map();
+  [...all].sort(newestFirst).forEach(f => {
+    const m = isF2(f) ? f2 : f1, k = baseOf(f);
+    if (!m.has(k)) m.set(k, []);
+    m.get(k).push(f);
   });
-  all = f1s.concat(orphans).sort((a, b) => a.name.localeCompare(b.name, 'vi', { numeric: true }));
+  const kept = [];
+  f1.forEach((list, k) => {
+    const f = list[0];                       // F1 mới nhất của số thẻ này
+    const pairs = f2.get(k) || [];
+    f.f2 = pairs.find(x => x.unit === f.unit) || pairs[0] || null;   // F2 mới nhất, ưu tiên cùng đơn vị
+    if (f.f2) f.key += ' ' + f.f2.key;       // tìm "..._2" cũng ra F1
+    kept.push(f);
+  });
+  all = kept.sort((a, b) => a.name.localeCompare(b.name, 'vi', { numeric: true }));
 }
 
 /* ---------- 1–2. Tìm kiếm ---------- */
