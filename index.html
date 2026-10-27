@@ -55,6 +55,11 @@
   #pvNotFound{width:100%;background:#dc2626;color:#fff;text-align:center;font-weight:700;font-size:17px;padding:12px;letter-spacing:.3px}
   #empty{color:#dc2626;font-weight:600}
   #pvMeta{font-size:12px;color:var(--muted);margin:0 0 10px;word-break:break-all}
+  #pvMeta:empty{display:none}
+  #pvInfo{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;margin:4px 0 10px;font-size:14px}
+  #pvInfo:empty{display:none}
+  #pvInfo dt{color:var(--muted)}
+  #pvInfo dd{margin:0;font-weight:700;word-break:break-word}
   #pvWrap{background:#111;border-radius:10px;min-height:200px;display:flex;align-items:center;justify-content:center;overflow:hidden}
   #pvImg{width:100%;max-height:70vh;object-fit:contain;display:block;cursor:zoom-in;transition:opacity .25s}
   #pvImg.fade{opacity:.2}
@@ -192,6 +197,7 @@
   <section class="card" id="preview">
     <p id="pvName">—</p>
     <p id="pvMeta"></p>
+    <dl id="pvInfo"></dl>
     <div id="pvWrap">
       <img id="pvImg" alt="" hidden>
       <div id="pvNotFound" hidden>⚠ KHÔNG TÌM THẤY ẢNH PHÙ HỢP</div>
@@ -246,7 +252,7 @@
 /* ====== CẤU HÌNH ======
    Dán chuỗi mã hóa tạo từ trang ma-hoa.html vào giữa hai dấu nháy.
    (API key và Folder ID nằm bên trong chuỗi này, chỉ giải được khi có mật khẩu) */
-const ENCRYPTED_CONFIG = 'v1.210000.nW0mVZuuL7bikxS74LEwwQ.UJNQXwmc3NIZcL02.YjiTvOmTlDEe0itVmq01cHN4ESS5t14Kjlf9tUPWSgHxy_NSqIXUFnSbBkRcRFBr6VnVXkhcNPvaiFfGlowFsF7uU77bD-dLsZ2zr-jo0ZxfBU2hdurUbmAsx-8aIT8ls2VNjoKj3w';
+const ENCRYPTED_CONFIG = 'v1.210000.dHRxA8oDmpUfTLhUhGMqQA.zaLz5wZxwCOGTh4w.4UuxjCQNEwCxmCAa-GaoT-hCQLZL-laxWvemiSsUFPJrZRPh8fGB6pR36W89C1OBPPy-RnZTU01jlGwPql913RKNppWo9miRzMEmKHdr9tOkIfmjXGnXMBwvqHa1sDJU-dsspFiJpQ';
 const SCAN_START = 7;    // Sau khi quét: lấy từ ký tự thứ 7 trở đi
 /* ============================================================ */
 
@@ -258,6 +264,41 @@ const norm = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[�
 // Tên hiển thị: phần trước dấu "-", viết HOA
 const shortName = n => (n.includes('-') ? n.split('-')[0] : n.replace(/\.[^.]+$/, '')).trim().toLocaleUpperCase('vi');
 const pad = n => String(n).padStart(2, '0');
+
+/* Đọc thông tin nằm trong tên file (tìm lần lượt từ trái qua phải):
+   te…tena = Số Tel, tena…nama = Tên người, nama…mati = Mã, mati…ti-- = Thời gian
+   VD: 3bhcm55-20261026160852te0917111315tenale minh quynamavae00133mati2026-10-26t16-08-35ti--kt */
+function parseInfo(name) {
+  const base = name.replace(/\.[^.]+$/, '');
+  const off = base.indexOf('-') + 1;            // bỏ phần số thẻ phía trước
+  const raw = base.slice(off), low = raw.toLowerCase();
+  let cur = 0;
+  const take = (a, b) => {
+    const i = low.indexOf(a, cur);
+    if (i < 0) return '';
+    const j = low.indexOf(b, i + a.length);
+    if (j < 0) return '';
+    cur = j;
+    return raw.slice(i + a.length, j).trim();
+  };
+  const tel  = take('te', 'tena');
+  const nm   = take('tena', 'nama');
+  const code = take('nama', 'mati');
+  let time   = take('mati', 'ti--');
+  const m = time.match(/(\d{4})-(\d{1,2})-(\d{1,2})t(\d{1,2})-(\d{1,2})-(\d{1,2})/i);
+  if (m) time = `${pad(m[4])}:${pad(m[5])}:${pad(m[6])} - ${pad(m[3])}-${pad(m[2])}-${m[1]}`;
+  const up = v => v.toLocaleUpperCase('vi');
+  return [['Số Tel', up(tel)], ['Tên người', up(nm)], ['Mã', up(code)], ['Thời gian', up(time)]].filter(([, v]) => v);
+}
+function renderInfo(rows) {
+  const dl = $('pvInfo');
+  dl.textContent = '';
+  rows.forEach(([k, v]) => {
+    const dt = document.createElement('dt'); dt.textContent = k + ':';
+    const dd = document.createElement('dd'); dd.textContent = v;
+    dl.append(dt, dd);
+  });
+}
 // Tên đơn vị: phần sau dấu "--" cuối cùng, trước đuôi file. VD: 2b0521-20261021080836--ttdt.jpg → TTDT
 const NO_UNIT = 'CHƯA RÕ ĐƠN VỊ';
 const unitName = n => {
@@ -327,6 +368,7 @@ function showFile(f) {
   document.querySelectorAll('#chips .chip').forEach(el => el.classList.toggle('cur', el.dataset.id === currentId));
   const img = $('pvImg');
   $('pvName').classList.remove('nf');
+  $('pvInfo').textContent = '';
   $('pvWrap').classList.remove('nf');
   $('pvNotFound').hidden = true;
   if (!f) {
@@ -351,8 +393,10 @@ function showFile(f) {
     $('pvHint').textContent = all.length ? 'Không có ảnh phù hợp' : 'Chưa có ảnh để hiển thị';
     return;
   }
-  $('pvName').textContent = f.short;
-  $('pvMeta').textContent = `${f.name} · ${f.dayVN}`;
+  // Số thẻ - Tên đơn vị
+  $('pvName').textContent = f.unit && f.unit !== NO_UNIT ? `${f.short} - ${f.unit}` : f.short;
+  $('pvMeta').textContent = '';
+  renderInfo(parseInfo(f.name));
   $('pvHint').hidden = true;
   img.hidden = false;
   img.classList.add('fade');
