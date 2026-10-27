@@ -2,6 +2,8 @@
 <html lang="vi">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#24486a">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -98,6 +100,22 @@
   #chipFilter.show{display:flex}
   #chipFilter button{margin-left:auto;padding:4px 10px;font-size:12px}
   /* Nhãn tên file */
+  .sub{margin-top:12px}
+  .sub h4{margin:0 0 6px;font-size:13px;color:var(--head);letter-spacing:.3px}
+  .sub table{width:100%;border-collapse:separate;border-spacing:0;border:1px solid var(--line);border-radius:10px;overflow:hidden;font-size:13px;table-layout:fixed}
+  .sub th,.sub td{padding:6px 4px;text-align:center;border-top:1px solid var(--line);border-left:1px solid var(--line)}
+  .sub tr:first-child th{border-top:0}
+  .sub th:first-child,.sub td:first-child{border-left:0}
+  .sub th{background:#f7f8fa;font-size:11px;color:var(--muted);font-weight:600}
+  .sub th.free{background:#15803d;color:#fff}
+  .sub th.limit{background:#b91c1c;color:#fff}
+  .sub td.rl{text-align:left;padding-left:8px;font-size:12px;width:31%}
+  .sub td.rl small{display:block;font-size:10px;color:var(--muted)}
+  .sub td.n{font-size:17px;font-weight:700;cursor:pointer}
+  .sub td.n.free{color:#15803d}
+  .sub td.n.limit{color:#b91c1c}
+  .sub td.n.zero{color:#c0c4cc;cursor:default}
+  .sub td.n.on{background:var(--hi);box-shadow:inset 0 0 0 2px var(--accent)}
   .sortbar{display:flex;gap:8px;margin-bottom:10px}
   .sortbar button{flex:1;padding:9px 10px;font-size:14px;background:#eef0f3;color:var(--text)}
   .sortbar button.on{background:var(--accent);color:#fff}
@@ -153,7 +171,7 @@
 <header>
   <img class="logo" src="icon-192.png?v=1" alt="Security System AMO">
   <div class="titles">
-    <h1>CHƯƠNG TRÌNH KIỂM SOÁT AN NINH</h1>
+    <h1>TÂN SƠN NHẤT SS</h1>
     <p>Thư viện 2 · Tra cứu ảnh theo mã / tên</p>
   </div>
   <button id="lockBtn" class="lockBtn" aria-label="Khóa">🔒</button>
@@ -163,7 +181,7 @@
 <div id="lock">
   <form id="lockBox" autocomplete="off">
     <img src="icon-192.png?v=1" alt="Security System AMO">
-    <h2>CHƯƠNG TRÌNH KIỂM SOÁT AN NINH</h2>
+    <h2>TÂN SƠN NHẤT SS</h2>
     <p>Thư viện 2 · Nhập mật khẩu để sử dụng</p>
     <div class="pwRow">
       <input id="pw" type="password" placeholder="Mật khẩu" autocomplete="current-password" enterkeyhint="go">
@@ -227,16 +245,13 @@
       </div>
     </div>
     <div id="statOther"></div>
+    <div id="subStats"></div>
   </section>
 
   <!-- 5. Nhãn tên các file hiện có -->
   <section class="card">
     <p class="label">Tổng số đơn vị tìm được <span class="badge" id="chipCount">0</span></p>
     <div id="chipFilter"><span id="chipFilterText"></span><button id="chipFilterClear" class="ghost">✕ Bỏ lọc</button></div>
-    <div class="sortbar">
-      <button id="sortName" class="on">Theo tên ↑</button>
-      <button id="sortDate">Theo thời gian</button>
-    </div>
     <div id="chips"></div>
   </section>
 </main>
@@ -274,11 +289,13 @@ const norm = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[�
 const shortName = n => (n.includes('-') ? n.split('-')[0] : n.replace(/\.[^.]+$/, '')).trim().toLocaleUpperCase('vi');
 const pad = n => String(n).padStart(2, '0');
 const F2_MARK = '_2';
+const APP_VERSION = 'v27.10-d';   // đổi mỗi lần sửa để kiểm tra điện thoại đã nhận bản mới chưa
+let loadInfo = '';
 
 /* Đọc thông tin nằm trong tên file (tìm lần lượt từ trái qua phải):
    te…tena = Số Tel, tena…nama = Tên người, nama…mati = Mã, mati…ti-- = Thời gian
    VD: 3bhcm55-20261026160852te0917111315tenale minh quynamavae00133mati2026-10-26t16-08-35ti--kt */
-function parseInfo(name) {
+function fileFields(name) {
   const base = name.replace(/\.[^.]+$/, '');
   const off = base.indexOf('-') + 1;            // bỏ phần số thẻ phía trước
   const raw = base.slice(off), low = raw.toLowerCase();
@@ -295,8 +312,16 @@ function parseInfo(name) {
   const nm   = take('tena', 'nama');
   const code = take('nama', 'mati');
   let time   = take('mati', 'ti--');
+  let entry  = null;                           // thời điểm vào (Date) để tính thời gian trong công ty
   const m = time.match(/(\d{4})-(\d{1,2})-(\d{1,2})t(\d{1,2})-(\d{1,2})-(\d{1,2})/i);
-  if (m) time = `${pad(m[4])}:${pad(m[5])}:${pad(m[6])} - ${pad(m[3])}-${pad(m[2])}-${m[1]}`;
+  if (m) {
+    time = `${pad(m[4])}:${pad(m[5])}:${pad(m[6])} - ${pad(m[3])}-${pad(m[2])}-${m[1]}`;
+    entry = new Date(+m[1], m[2] - 1, +m[3], +m[4], +m[5], +m[6]);
+  }
+  return { tel, nm, code, time, entry };
+}
+function parseInfo(name) {
+  const { tel, nm, code, time } = fileFields(name);
   const up = v => v.toLocaleUpperCase('vi');
   return [['Số Tel', up(tel)], ['Tên người', up(nm)], ['Mã', up(code)], ['Thời gian', up(time)]].filter(([, v]) => v);
 }
@@ -348,12 +373,19 @@ async function loadFiles() {
     f.timeVN = `${pad(f.date.getHours())}:${pad(f.date.getMinutes())} ${f.dayVN}`;
     f.pre = f.name.trim().slice(0, 2).toLocaleUpperCase('vi');   // 2 ký tự đầu tên file
     f.unit = unitName(f.name);                                    // tên đơn vị sau dấu "--"
+    const fx = fileFields(f.name);
+    f.tel = fx.tel;                                               // có số Tel = thẻ dài hạn
+    f.entry = fx.entry;                                           // thời điểm vào
   });
   // F2 = file có "_2" trong số thẻ (VD 3BHCM70_2): KHÔNG hiển thị, KHÔNG tính thống kê,
   // chỉ hiện ảnh bên dưới F1 cùng số thẻ (VD 3BHCM70).
   // Thẻ bị trùng (cùng số thẻ upload nhiều lần): chỉ giữ file MỚI NHẤT.
-  const isF2   = f => f.short.includes(F2_MARK);
-  const baseOf = f => f.short.split(F2_MARK).join('').replace(/\s+/g, '');
+  // Nhận F2 chắc chắn hơn: chuẩn hóa ký tự (gạch dưới/số dạng full-width, khoảng trắng),
+  // số thẻ kết thúc bằng "_2" (hoặc " 2", "-2", ".2")
+  const clean  = t => t.normalize('NFKC').replace(/\s+/g, '').toUpperCase();
+  const F2_RE  = /[_\-.]2$/;
+  const isF2   = f => F2_RE.test(clean(f.short));
+  const baseOf = f => clean(f.short).replace(F2_RE, '');
   const newestFirst = (a, b) => (b.date - a.date) || b.name.localeCompare(a.name);
   const f1 = new Map(), f2 = new Map();
   [...all].sort(newestFirst).forEach(f => {
@@ -362,7 +394,10 @@ async function loadFiles() {
     m.get(k).push(f);
   });
   const kept = [];
+  let nF2 = 0, nDup = 0;
+  f2.forEach(l => nF2 += l.length);
   f1.forEach((list, k) => {
+    nDup += list.length - 1;
     const f = list[0];                       // F1 mới nhất của số thẻ này
     const pairs = f2.get(k) || [];
     f.f2 = pairs.find(x => x.unit === f.unit) || pairs[0] || null;   // F2 mới nhất, ưu tiên cùng đơn vị
@@ -370,6 +405,7 @@ async function loadFiles() {
     kept.push(f);
   });
   all = kept.sort((a, b) => a.name.localeCompare(b.name, 'vi', { numeric: true }));
+  loadInfo = `Đã ẩn ${nF2} ảnh _2 · bỏ ${nDup} file trùng`;
 }
 
 /* ---------- 1–2. Tìm kiếm ---------- */
@@ -520,6 +556,61 @@ function renderStats() {
   if (other > 0) notes.push(`Không thuộc nhóm nào: ${other} file`);
   $('statOther').innerHTML = '';
   notes.forEach(t => { const d = document.createElement('div'); d.textContent = t; $('statOther').append(d); });
+  renderSubStats();
+}
+
+/* ---------- Thống kê phụ: loại thẻ + thời gian trong công ty ---------- */
+const HOUR = 3600e3;
+const hoursIn = f => f.entry ? (Date.now() - f.entry) / HOUR : null;
+const SUB_TABLES = [
+  { title: 'LOẠI THẺ', rows: [
+    { label: 'Thẻ ngắn hạn', note: 'không có số Tel', test: f => !f.tel },
+    { label: 'Thẻ dài hạn',  note: 'có số Tel',       test: f => !!f.tel } ] },
+  { title: 'THỜI GIAN TRONG CÔNG TY', rows: [
+    { label: '0h – 9h',       test: f => { const h = hoursIn(f); return h !== null && h < 9; } },
+    { label: '9h – 12h',      test: f => { const h = hoursIn(f); return h !== null && h >= 9 && h < 12; } },
+    { label: '12h – 1 ngày',  test: f => { const h = hoursIn(f); return h !== null && h >= 12 && h < 24; } },
+    { label: 'Trên 1 ngày',   test: f => { const h = hoursIn(f); return h !== null && h >= 24; } } ] }
+];
+
+function renderSubStats() {
+  const box = $('subStats');
+  box.textContent = '';
+  const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+  SUB_TABLES.forEach(tb => {
+    const wrap = el('div', 'sub');
+    wrap.append(el('h4', '', tb.title));
+    const table = el('table');
+    const h1 = el('tr'), h2 = el('tr');
+    const corner = el('th', '', ''); corner.rowSpan = 2; h1.append(corner);
+    STAT_ZONES.forEach(z => {
+      const th = el('th', z.cls, z.zone); th.colSpan = z.items.length; h1.append(th);
+      z.items.forEach(it => h2.append(el('th', '', it.label)));
+    });
+    table.append(h1, h2);
+    tb.rows.forEach(r => {
+      const tr = el('tr');
+      const rl = el('td', 'rl', r.label);
+      if (r.note) rl.append(el('small', '', r.note));
+      tr.append(rl);
+      STAT_ZONES.forEach(z => z.items.forEach(it => {
+        const match = f => r.test(f) && counted(f, it);
+        const n = all.filter(match).length;
+        const key = `sub|${tb.title}|${r.label}|${z.zone}|${it.label}`;
+        const td = el('td', `n ${z.cls}${n ? '' : ' zero'}${chipFilter && chipFilter.key === key ? ' on' : ''}`, n);
+        if (n) td.onclick = () => {
+          chipFilter = chipFilter && chipFilter.key === key ? null
+            : { key, match, text: `${r.label} – ${z.zone} – ${it.label}` };
+          renderStats(); renderChips();
+          $('chips').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        };
+        tr.append(td);
+      }));
+      table.append(tr);
+    });
+    wrap.append(table);
+    box.append(wrap);
+  });
 }
 
 function renderChips() {
@@ -579,10 +670,6 @@ function makeChip(f) {
 
 function finishChips(list, unitCount) {
   $('chipCount').textContent = unitCount;
-  $('sortName').classList.toggle('on', sortBy === 'name');
-  $('sortDate').classList.toggle('on', sortBy === 'date');
-  $('sortName').textContent = 'Theo tên' + (sortBy === 'name' ? (sortAsc ? ' ↑' : ' ↓') : '');
-  $('sortDate').textContent = 'Theo thời gian' + (sortBy === 'date' ? (sortAsc ? ' ↑' : ' ↓') : '');
 }
 
 // Bấm lần 1: chọn kiểu sắp xếp; bấm lần nữa: đảo chiều tăng/giảm
@@ -700,8 +787,6 @@ $('chips').addEventListener('click', e => {
   $('preview').scrollIntoView({ behavior: 'smooth', block: 'start' });
 });
 $('chipFilterClear').onclick = () => { chipFilter = null; renderStats(); renderChips(); };
-$('sortName').onclick = () => setSort('name');
-$('sortDate').onclick = () => setSort('date');
 $('scanBtn').onclick = openScanner;
 $('scanClose').onclick = closeScanner;
 $('pv2Img').onclick = () => { $('zoomImg').src = $('pv2Img').src; $('zoom').classList.add('open'); };
@@ -727,7 +812,7 @@ async function refresh() {
     renderChips();
     const diff = before ? all.length - before : 0;
     const t = new Date();
-    $('updated').textContent = `Cập nhật lúc ${pad(t.getHours())}:${pad(t.getMinutes())}:${pad(t.getSeconds())}`
+    $('updated').textContent = `${APP_VERSION} · ${loadInfo} · Cập nhật lúc ${pad(t.getHours())}:${pad(t.getMinutes())}:${pad(t.getSeconds())}`
       + (diff > 0 ? ` · thêm ${diff} file mới` : diff < 0 ? ` · bớt ${-diff} file` : '');
   } catch (err) {
     $('count').textContent = 'Không tải được ảnh: ' + err.message;
