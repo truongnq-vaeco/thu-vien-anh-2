@@ -62,6 +62,10 @@
   #pvInfo dd{margin:0;font-weight:700;word-break:break-word}
   #pvWrap{background:#111;border-radius:10px;min-height:200px;display:flex;align-items:center;justify-content:center;overflow:hidden}
   #pvImg{width:100%;max-height:70vh;object-fit:contain;display:block;cursor:zoom-in;transition:opacity .25s}
+  .pv2Label{margin:12px 0 6px;font-size:13px;font-weight:600;color:var(--muted)}
+  .pv2Wrap{background:#111;border-radius:10px;min-height:160px;display:flex;align-items:center;justify-content:center;overflow:hidden}
+  #pv2Img{width:100%;max-height:70vh;object-fit:contain;display:block;cursor:zoom-in;transition:opacity .25s}
+  #pv2Img.fade{opacity:.2}
   #pvImg.fade{opacity:.2}
   #pvHint{color:#aaa;font-size:14px;padding:24px;text-align:center}
   /* Thống kê */
@@ -203,6 +207,11 @@
       <div id="pvNotFound" hidden>⚠ KHÔNG TÌM THẤY ẢNH PHÙ HỢP</div>
       <div id="pvHint">Chưa có ảnh để hiển thị</div>
     </div>
+    <!-- Ảnh F2 (file cùng tên có "_2"), chỉ hiện khi có -->
+    <div id="pv2Box" hidden>
+      <p class="pv2Label">Ảnh 2</p>
+      <div class="pv2Wrap"><img id="pv2Img" alt=""></div>
+    </div>
   </section>
 
   <!-- 4. Thống kê theo khu vực -->
@@ -264,6 +273,7 @@ const norm = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[�
 // Tên hiển thị: phần trước dấu "-", viết HOA
 const shortName = n => (n.includes('-') ? n.split('-')[0] : n.replace(/\.[^.]+$/, '')).trim().toLocaleUpperCase('vi');
 const pad = n => String(n).padStart(2, '0');
+const F2_MARK = '_2';
 
 /* Đọc thông tin nằm trong tên file (tìm lần lượt từ trái qua phải):
    te…tena = Số Tel, tena…nama = Tên người, nama…mati = Mã, mati…ti-- = Thời gian
@@ -339,6 +349,20 @@ async function loadFiles() {
     f.pre = f.name.trim().slice(0, 2).toLocaleUpperCase('vi');   // 2 ký tự đầu tên file
     f.unit = unitName(f.name);                                    // tên đơn vị sau dấu "--"
   });
+  // F2 = file có "_2" trong số thẻ (VD 3BHCM70_2) → không hiển thị riêng, không tính thống kê,
+  // mà gắn vào F1 cùng số thẻ không có "_2" (VD 3BHCM70) để hiện ảnh bên dưới ảnh F1.
+  const isF2 = f => f.short.includes(F2_MARK);
+  const f1s = all.filter(f => !isF2(f));
+  const bySkey = new Map();
+  f1s.forEach(f => { f.f2 = null; if (!bySkey.has(f.short)) bySkey.set(f.short, []); bySkey.get(f.short).push(f); });
+  const orphans = [];
+  all.filter(isF2).forEach(f2 => {
+    const cands = bySkey.get(f2.short.replace(F2_MARK, '')) || [];
+    const f1 = cands.find(f => f.unit === f2.unit && !f.f2) || cands.find(f => !f.f2);
+    if (f1) { f1.f2 = f2; f1.key += ' ' + f2.key; }   // tìm "..._2" cũng ra F1
+    else orphans.push(f2);                               // F2 không có F1: vẫn hiện như file thường
+  });
+  all = f1s.concat(orphans).sort((a, b) => a.name.localeCompare(b.name, 'vi', { numeric: true }));
 }
 
 /* ---------- 1–2. Tìm kiếm ---------- */
@@ -362,6 +386,17 @@ function search() {
 }
 
 /* ---------- 3. Hiển thị ảnh ---------- */
+function showF2(f2) {
+  const box = $('pv2Box'), img = $('pv2Img');
+  if (!f2) { box.hidden = true; img.removeAttribute('src'); return; }
+  box.hidden = false;
+  img.classList.add('fade');
+  img.onerror = () => { img.onerror = null; img.src = fallbackUrl(f2.id); };
+  img.onload = () => img.classList.remove('fade');
+  img.src = bigUrl(f2.id);
+  img.alt = f2.name;
+}
+
 function showFile(f) {
   currentId = f ? f.id : null;
   [...$('list').children].forEach(el => el.classList.toggle('active', f && view[+el.dataset.i] === f));
@@ -371,6 +406,7 @@ function showFile(f) {
   $('pvInfo').textContent = '';
   $('pvWrap').classList.remove('nf');
   $('pvNotFound').hidden = true;
+  showF2(f && f.f2);
   if (!f) {
     const q = $('q').value.trim();
     if (all.length && q) {
@@ -661,6 +697,7 @@ $('sortName').onclick = () => setSort('name');
 $('sortDate').onclick = () => setSort('date');
 $('scanBtn').onclick = openScanner;
 $('scanClose').onclick = closeScanner;
+$('pv2Img').onclick = () => { $('zoomImg').src = $('pv2Img').src; $('zoom').classList.add('open'); };
 $('pvImg').onclick = () => { if ($('pvWrap').classList.contains('nf')) return; $('zoomImg').src = $('pvImg').src; $('zoom').classList.add('open'); };
 $('zoomClose').onclick = () => $('zoom').classList.remove('open');
 $('toTop').onclick = () => window.scrollTo({ top: 0, behavior: 'smooth' });
