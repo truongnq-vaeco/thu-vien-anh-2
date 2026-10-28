@@ -64,10 +64,13 @@
   #pvInfo dd{margin:0;font-weight:700;word-break:break-word}
   #pvInfo dd.none{color:#b0b5bd;font-weight:400}
   .chip .ico{margin-right:5px;font-size:13px}
+  #preview{position:relative}
+  #termTag{position:absolute;top:12px;right:12px;border:1px solid #cfd4db;border-radius:6px;padding:2px 8px;font-size:12px;color:#9aa0a8;background:#fff}
+  #pvName{padding-right:84px}
   .expWarn{display:inline-block;margin-left:8px;padding:1px 8px;border-radius:6px;background:#dc2626;color:#fff;font-size:12px;font-weight:700}
   .zone .cell.f2row{padding:3px 9px;background:#fafbfc}
   .zone .cell.f2row span{font-size:12px;font-weight:500}
-  .zone .cell.f2row b{font-size:16px}
+  .zone .cell.f2row b{font-size:13px}
   #pvWrap{background:#111;border-radius:10px;min-height:200px;display:flex;align-items:center;justify-content:center;overflow:hidden}
   #pvImg{width:100%;max-height:70vh;object-fit:contain;display:block;cursor:zoom-in;transition:opacity .25s}
   .pv2Label{margin:12px 0 6px;font-size:13px;font-weight:600;color:var(--muted)}
@@ -86,7 +89,7 @@
   .zone .cell:first-of-type{border-top:0}
   .zone .cell span{font-size:14px;font-weight:600;color:var(--text)!important;color:var(--muted)}
   .zone .cell span small{font-size:10px;opacity:.8;margin-left:4px}
-  .zone .cell b{font-size:24px;font-weight:800;line-height:1}
+  .zone .cell b{font-size:19px;font-weight:800;line-height:1}
   .zone.free .cell b{color:#15803d}
   .zone.limit .cell b{color:#b91c1c}
   .zone .cell.on{background:var(--hi)}
@@ -97,7 +100,7 @@
   .gRow div{padding:5px 6px;display:flex;align-items:center;justify-content:center;gap:6px;text-align:center;border-left:1px solid var(--line)}
   .gRow div:first-child{border-left:0}
   .gRow span{font-size:14px;font-weight:600;color:var(--text)}
-  .gRow b{font-size:24px;font-weight:800;color:var(--head)}
+  .gRow b{font-size:19px;font-weight:800;color:var(--head)}
   .gRow .gAll{background:var(--hi)}
   .gRow .gAll b{color:var(--accent)}
   #statOther{font-size:11px;color:var(--muted);margin-top:5px;text-align:right}
@@ -230,6 +233,7 @@
   <!-- 3. Ảnh -->
   <section class="card" id="preview">
     <p id="pvName">—</p>
+    <span id="termTag" hidden></span>
     <p id="pvMeta"></p>
     <dl id="pvInfo"></dl>
     <div id="pvWrap">
@@ -301,7 +305,7 @@ const norm = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[�
 const shortName = n => (n.includes('-') ? n.split('-')[0] : n.replace(/\.[^.]+$/, '')).trim().toLocaleUpperCase('vi');
 const pad = n => String(n).padStart(2, '0');
 const F2_MARK = '_2';
-const APP_VERSION = 'v28.10-d';   // đổi mỗi lần sửa để kiểm tra điện thoại đã nhận bản mới chưa
+const APP_VERSION = 'v28.10-e';   // đổi mỗi lần sửa để kiểm tra điện thoại đã nhận bản mới chưa
 let loadInfo = '';
 
 /* Đọc thông tin nằm trong tên file (tìm lần lượt từ trái qua phải):
@@ -500,6 +504,9 @@ function showFile(f) {
   const img = $('pvImg');
   $('pvName').classList.remove('nf');
   $('pvInfo').textContent = '';
+  // Nhãn góc phải: Dài hạn (có số Tel) / Ngắn hạn (không có số Tel)
+  $('termTag').hidden = !f;
+  if (f) $('termTag').textContent = hasTel(f) ? 'Dài hạn' : 'Ngắn hạn';
   $('pvWrap').classList.remove('nf');
   $('pvNotFound').hidden = true;
   showF2(f && f.f2);
