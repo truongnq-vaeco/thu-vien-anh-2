@@ -301,7 +301,7 @@ const norm = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[�
 const shortName = n => (n.includes('-') ? n.split('-')[0] : n.replace(/\.[^.]+$/, '')).trim().toLocaleUpperCase('vi');
 const pad = n => String(n).padStart(2, '0');
 const F2_MARK = '_2';
-const APP_VERSION = 'v28.10-c';   // đổi mỗi lần sửa để kiểm tra điện thoại đã nhận bản mới chưa
+const APP_VERSION = 'v28.10-d';   // đổi mỗi lần sửa để kiểm tra điện thoại đã nhận bản mới chưa
 let loadInfo = '';
 
 /* Đọc thông tin nằm trong tên file (tìm lần lượt từ trái qua phải):
@@ -311,10 +311,17 @@ function fileFields(name) {
   const em = name.match(EXP_RE);
   const expiry = em ? parseDay(em[1]) : null;    // ngày hết hạn (Date) hoặc null
   const expRaw = em ? em[1].trim() : '';
-  const base = stripExp(name).replace(/\.[^.]+$/, '');
+  const base = name.replace(/\.[^.]+$/, '');
   const off = base.indexOf('-') + 1;            // bỏ phần số thẻ phía trước
   const raw = base.slice(off), low = raw.toLowerCase();
   let cur = 0;
+  // Số Tel: nằm giữa "state" và "tena". Tên file kiểu cũ (không có "state"): giữa "te" và "tena"
+  let tel = '';
+  const iState = low.indexOf('state');
+  if (iState >= 0) {
+    const j = low.indexOf('tena', iState + 5);
+    if (j >= 0) { tel = raw.slice(iState + 5, j).trim(); cur = j; }
+  }
   const take = (a, b) => {
     const i = low.indexOf(a, cur);
     if (i < 0) return '';
@@ -323,7 +330,7 @@ function fileFields(name) {
     cur = j;
     return raw.slice(i + a.length, j).trim();
   };
-  const tel  = take('te', 'tena');
+  if (iState < 0) tel = take('te', 'tena');
   const nm   = take('tena', 'nama');
   const code = take('nama', 'mati');
   let time   = take('mati', 'ti--');
@@ -362,8 +369,8 @@ function parseInfo(name) {
     const left = Math.round((d - today) / 864e5);
     const warn = left < 0 ? 'ĐÃ HẾT HẠN' : left <= WARN_DAYS ? `SẮP HẾT HẠN (còn ${left} ngày)` : '';
     rows.push(['Ngày hết hạn', txt, warn]);
-  } else rows.push(['Ngày hết hạn', up(expRaw)]);
-  return rows;   // luôn hiện đủ các dòng; dòng không có dữ liệu hiện "—"
+  } else if (expRaw) rows.push(['Ngày hết hạn', up(expRaw)]);
+  return rows.filter(([, v]) => v);   // dòng không có dữ liệu thì ẩn
 }
 function renderInfo(rows) {
   const dl = $('pvInfo');
