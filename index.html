@@ -64,8 +64,8 @@
   #pvInfo dd{margin:0;font-weight:700;word-break:break-word}
   .expWarn{display:inline-block;margin-left:8px;padding:1px 8px;border-radius:6px;background:#dc2626;color:#fff;font-size:12px;font-weight:700}
   .zone .cell.f2row{padding:3px 9px;background:#fafbfc}
-  .zone .cell.f2row span{font-size:11px}
-  .zone .cell.f2row b{font-size:14px}
+  .zone .cell.f2row span{font-size:12px;font-weight:500}
+  .zone .cell.f2row b{font-size:16px}
   #pvWrap{background:#111;border-radius:10px;min-height:200px;display:flex;align-items:center;justify-content:center;overflow:hidden}
   #pvImg{width:100%;max-height:70vh;object-fit:contain;display:block;cursor:zoom-in;transition:opacity .25s}
   .pv2Label{margin:12px 0 6px;font-size:13px;font-weight:600;color:var(--muted)}
@@ -77,25 +77,25 @@
   /* Thống kê */
   .stats{display:grid;grid-template-columns:1fr 1fr;gap:8px}
   .zone{border-radius:12px;overflow:hidden;border:1px solid var(--line)}
-  .zone h3{margin:0;padding:5px 8px;font-size:12px;letter-spacing:.4px;color:#fff;text-align:center}
+  .zone h3{margin:0;padding:7px 8px;font-size:14px;font-weight:800;letter-spacing:.4px;color:#fff;text-align:center}
   .zone.free h3{background:#15803d}
   .zone.limit h3{background:#b91c1c}
-  .zone .cell{display:flex;justify-content:space-between;align-items:center;padding:5px 9px;border-top:1px solid var(--line);cursor:pointer}
+  .zone .cell{display:flex;justify-content:space-between;align-items:center;padding:7px 10px;border-top:1px solid var(--line);cursor:pointer}
   .zone .cell:first-of-type{border-top:0}
-  .zone .cell span{font-size:12px;color:var(--muted)}
+  .zone .cell span{font-size:14px;font-weight:600;color:var(--text)!important;color:var(--muted)}
   .zone .cell span small{font-size:10px;opacity:.8;margin-left:4px}
-  .zone .cell b{font-size:18px;line-height:1}
+  .zone .cell b{font-size:24px;font-weight:800;line-height:1}
   .zone.free .cell b{color:#15803d}
   .zone.limit .cell b{color:#b91c1c}
   .zone .cell.on{background:var(--hi)}
-  .zone .sum{display:flex;justify-content:space-between;padding:4px 9px;background:#f7f8fa;border-top:1px solid var(--line);font-size:12px;font-weight:600}
+  .zone .sum{display:flex;justify-content:space-between;padding:6px 10px;font-size:14px!important;background:#f7f8fa;border-top:1px solid var(--line);font-size:12px;font-weight:600}
   .grand{margin-top:8px;border:1px solid var(--line);border-radius:12px;overflow:hidden}
-  .grand h3{margin:0;padding:5px 8px;font-size:12px;letter-spacing:.4px;color:#fff;background:var(--head);text-align:center}
+  .grand h3{margin:0;padding:7px 8px;font-size:14px;font-weight:800;letter-spacing:.4px;color:#fff;background:var(--head);text-align:center}
   .gRow{display:grid;grid-template-columns:1fr 1fr 1fr}
   .gRow div{padding:5px 6px;display:flex;align-items:center;justify-content:center;gap:6px;text-align:center;border-left:1px solid var(--line)}
   .gRow div:first-child{border-left:0}
-  .gRow span{font-size:12px;color:var(--muted)}
-  .gRow b{font-size:18px;color:var(--head)}
+  .gRow span{font-size:14px;font-weight:600;color:var(--text)}
+  .gRow b{font-size:24px;font-weight:800;color:var(--head)}
   .gRow .gAll{background:var(--hi)}
   .gRow .gAll b{color:var(--accent)}
   #statOther{font-size:11px;color:var(--muted);margin-top:5px;text-align:right}
@@ -104,7 +104,13 @@
   #chipFilter.show{display:flex}
   #chipFilter button{margin-left:auto;padding:4px 10px;font-size:12px}
   /* Nhãn tên file */
-  .sub{margin-top:12px}
+  .sub{margin-top:10px;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .sub summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:#f3f5f8;font-size:13px;font-weight:700;color:var(--head);letter-spacing:.3px}
+  .sub summary::-webkit-details-marker{display:none}
+  .sub summary::after{content:'▾ Xem';font-size:12px;font-weight:600;color:var(--accent)}
+  .sub[open] summary::after{content:'▴ Thu gọn'}
+  .sub[open] summary{border-bottom:1px solid var(--line)}
+  .sub .body{padding:8px}
   .sub h4{margin:0 0 6px;font-size:13px;color:var(--head);letter-spacing:.3px}
   .sub table{width:100%;border-collapse:separate;border-spacing:0;border:1px solid var(--line);border-radius:10px;overflow:hidden;font-size:13px;table-layout:fixed}
   .sub th,.sub td{padding:6px 4px;text-align:center;border-top:1px solid var(--line);border-left:1px solid var(--line)}
@@ -115,7 +121,7 @@
   .sub th.limit{background:#b91c1c;color:#fff}
   .sub td.rl{text-align:left;padding-left:8px;font-size:12px;width:31%}
   .sub td.rl small{display:block;font-size:10px;color:var(--muted)}
-  .sub td.n{font-size:17px;font-weight:700;cursor:pointer}
+  .sub td.n{font-size:15px;font-weight:600;cursor:pointer}
   .sub td.n.free{color:#15803d}
   .sub td.n.limit{color:#b91c1c}
   .sub td.n.zero{color:#c0c4cc;cursor:default}
@@ -293,7 +299,7 @@ const norm = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[�
 const shortName = n => (n.includes('-') ? n.split('-')[0] : n.replace(/\.[^.]+$/, '')).trim().toLocaleUpperCase('vi');
 const pad = n => String(n).padStart(2, '0');
 const F2_MARK = '_2';
-const APP_VERSION = 'v28.10-a';   // đổi mỗi lần sửa để kiểm tra điện thoại đã nhận bản mới chưa
+const APP_VERSION = 'v28.10-b';   // đổi mỗi lần sửa để kiểm tra điện thoại đã nhận bản mới chưa
 let loadInfo = '';
 
 /* Đọc thông tin nằm trong tên file (tìm lần lượt từ trái qua phải):
@@ -617,9 +623,10 @@ function renderStats() {
 const HOUR = 3600e3;
 const hoursIn = f => f.entry ? (Date.now() - f.entry) / HOUR : null;
 const SUB_TABLES = [
+  // Chỉ đếm thẻ F1 (danh sách `all` đã loại F2 "_2" và thẻ trùng)
   { title: 'THEO HẠN THẺ', rows: [
-    { label: 'Ngắn', test: f => !f.tel },
-    { label: 'Dài',  test: f => !!f.tel } ] },
+    { label: 'Ngắn', test: f => !f.tel },     // F1 không có số Tel
+    { label: 'Dài',  test: f => !!f.tel } ] },  // F1 có số Tel
   { title: 'THỜI GIAN TRONG CÔNG TY', rows: [
     { label: '0h – 9h',       test: f => { const h = hoursIn(f); return h !== null && h < 9; } },
     { label: '9h – 12h',      test: f => { const h = hoursIn(f); return h !== null && h >= 9 && h < 12; } },
@@ -627,13 +634,17 @@ const SUB_TABLES = [
     { label: 'Trên 1 ngày',   test: f => { const h = hoursIn(f); return h !== null && h >= 24; } } ] }
 ];
 
+const subOpen = new Set();   // các bảng đang mở (mặc định thu gọn)
 function renderSubStats() {
   const box = $('subStats');
   box.textContent = '';
   const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
   SUB_TABLES.forEach(tb => {
-    const wrap = el('div', 'sub');
-    wrap.append(el('h4', '', tb.title));
+    const wrap = el('details', 'sub');
+    wrap.open = subOpen.has(tb.title);              // giữ trạng thái mở/thu gọn khi cập nhật
+    wrap.ontoggle = () => { wrap.open ? subOpen.add(tb.title) : subOpen.delete(tb.title); };
+    wrap.append(el('summary', '', tb.title));
+    const body = el('div', 'body');
     const table = el('table');
     const h1 = el('tr'), h2 = el('tr');
     const corner = el('th', '', ''); corner.rowSpan = 2; h1.append(corner);
@@ -662,7 +673,8 @@ function renderSubStats() {
       }));
       table.append(tr);
     });
-    wrap.append(table);
+    body.append(table);
+    wrap.append(body);
     box.append(wrap);
   });
 }
