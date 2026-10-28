@@ -62,6 +62,10 @@
   #pvInfo:empty{display:none}
   #pvInfo dt{color:var(--muted)}
   #pvInfo dd{margin:0;font-weight:700;word-break:break-word}
+  .expWarn{display:inline-block;margin-left:8px;padding:1px 8px;border-radius:6px;background:#dc2626;color:#fff;font-size:12px;font-weight:700}
+  .zone .cell.f2row{padding:3px 9px;background:#fafbfc}
+  .zone .cell.f2row span{font-size:11px}
+  .zone .cell.f2row b{font-size:14px}
   #pvWrap{background:#111;border-radius:10px;min-height:200px;display:flex;align-items:center;justify-content:center;overflow:hidden}
   #pvImg{width:100%;max-height:70vh;object-fit:contain;display:block;cursor:zoom-in;transition:opacity .25s}
   .pv2Label{margin:12px 0 6px;font-size:13px;font-weight:600;color:var(--muted)}
@@ -289,14 +293,17 @@ const norm = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[�
 const shortName = n => (n.includes('-') ? n.split('-')[0] : n.replace(/\.[^.]+$/, '')).trim().toLocaleUpperCase('vi');
 const pad = n => String(n).padStart(2, '0');
 const F2_MARK = '_2';
-const APP_VERSION = 'v27.10-d';   // đổi mỗi lần sửa để kiểm tra điện thoại đã nhận bản mới chưa
+const APP_VERSION = 'v28.10-a';   // đổi mỗi lần sửa để kiểm tra điện thoại đã nhận bản mới chưa
 let loadInfo = '';
 
 /* Đọc thông tin nằm trong tên file (tìm lần lượt từ trái qua phải):
    te…tena = Số Tel, tena…nama = Tên người, nama…mati = Mã, mati…ti-- = Thời gian
    VD: 3bhcm55-20261026160852te0917111315tenale minh quynamavae00133mati2026-10-26t16-08-35ti--kt */
 function fileFields(name) {
-  const base = name.replace(/\.[^.]+$/, '');
+  const em = name.match(EXP_RE);
+  const expiry = em ? parseDay(em[1]) : null;    // ngày hết hạn (Date) hoặc null
+  const expRaw = em ? em[1].trim() : '';
+  const base = stripExp(name).replace(/\.[^.]+$/, '');
   const off = base.indexOf('-') + 1;            // bỏ phần số thẻ phía trước
   const raw = base.slice(off), low = raw.toLowerCase();
   let cur = 0;
@@ -318,25 +325,55 @@ function fileFields(name) {
     time = `${pad(m[4])}:${pad(m[5])}:${pad(m[6])} - ${pad(m[3])}-${pad(m[2])}-${m[1]}`;
     entry = new Date(+m[1], m[2] - 1, +m[3], +m[4], +m[5], +m[6]);
   }
-  return { tel, nm, code, time, entry };
+  return { tel, nm, code, time, entry, expiry, expRaw };
 }
+// Đọc ngày: yyyy-mm-dd, yyyymmdd, dd-mm-yyyy (dấu phân cách bất kỳ)
+function parseDay(t) {
+  t = t.trim();
+  let m = t.match(/((?:19|20)\d{2})\D?(\d{1,2})\D?(\d{1,2})/);
+  if (m && t.match(/^\D*(?:19|20)\d{2}/)) return new Date(+m[1], m[2] - 1, +m[3]);
+  m = t.match(/(\d{1,2})\D(\d{1,2})\D((?:19|20)\d{2})/);
+  if (m) return new Date(+m[3], m[2] - 1, +m[1]);
+  return null;
+}
+// Thời gian đã ở trong công ty, VD "10 h" hoặc "1 ngày 6 h"
+function stayText(entry) {
+  const h = Math.max(0, (Date.now() - entry) / 3600e3);
+  return h < 24 ? `${Math.floor(h)} h` : `${Math.floor(h / 24)} ngày ${Math.floor(h % 24)} h`;
+}
+const WARN_DAYS = 14;   // cảnh báo khi hạn thẻ còn từ 14 ngày trở xuống
 function parseInfo(name) {
-  const { tel, nm, code, time } = fileFields(name);
+  const { tel, nm, code, time, entry, expiry, expRaw } = fileFields(name);
   const up = v => v.toLocaleUpperCase('vi');
-  return [['Số Tel', up(tel)], ['Tên người', up(nm)], ['Mã', up(code)], ['Thời gian', up(time)]].filter(([, v]) => v);
+  const rows = [['Số Tel', up(tel)], ['Tên người', up(nm)], ['Mã', up(code)],
+                ['Thời gian', time ? up(time) + (entry ? ` (${stayText(entry)})` : '') : '']];
+  if (expiry) {
+    const d = expiry;
+    const txt = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const left = Math.round((d - today) / 864e5);
+    const warn = left < 0 ? 'ĐÃ HẾT HẠN' : left <= WARN_DAYS ? `SẮP HẾT HẠN (còn ${left} ngày)` : '';
+    rows.push(['Ngày hết hạn', txt, warn]);
+  } else if (expRaw) rows.push(['Ngày hết hạn', up(expRaw)]);
+  return rows.filter(([, v]) => v);
 }
 function renderInfo(rows) {
   const dl = $('pvInfo');
   dl.textContent = '';
-  rows.forEach(([k, v]) => {
+  rows.forEach(([k, v, warn]) => {
     const dt = document.createElement('dt'); dt.textContent = k + ':';
     const dd = document.createElement('dd'); dd.textContent = v;
+    if (warn) { const w = document.createElement('span'); w.className = 'expWarn'; w.textContent = '⚠ ' + warn; dd.append(w); }
     dl.append(dt, dd);
   });
 }
 // Tên đơn vị: phần sau dấu "--" cuối cùng, trước đuôi file. VD: 2b0521-20261021080836--ttdt.jpg → TTDT
 const NO_UNIT = 'CHƯA RÕ ĐƠN VỊ';
-const unitName = n => {
+// Đoạn ngày hết hạn "sta…state" được tách riêng để không lẫn vào các thông tin khác
+const EXP_RE = /sta(.*?)state/i;
+const stripExp = n => n.replace(EXP_RE, '');
+const unitName = n0 => {
+  const n = stripExp(n0);
   const i = n.lastIndexOf('--');
   if (i < 0) return NO_UNIT;
   const u = n.slice(i + 2).replace(/\.[^.]+$/, '').trim().toLocaleUpperCase('vi');
@@ -538,6 +575,23 @@ function renderStats() {
         renderStats(); renderChips();
       };
       zone.append(cell);
+      if (!it.vehicle) {
+        // VPNH và HH: số F1 (người) có file "_2" đi kèm – hiển thị trong (), không cộng vào Tổng
+        const fkey = 'vpnh|' + z.zone;
+        const fmatch = f => !!f.f2 && counted(f, it);
+        const fn = all.filter(fmatch).length;
+        const r = document.createElement('div');
+        r.className = 'cell f2row' + (chipFilter && chipFilter.key === fkey ? ' on' : '');
+        const l = document.createElement('span'); l.textContent = 'VPNH và HH';
+        const v = document.createElement('b'); v.textContent = `(${fn})`;
+        r.append(l, v);
+        r.onclick = () => {
+          chipFilter = chipFilter && chipFilter.key === fkey ? null
+            : { key: fkey, match: fmatch, text: `${z.zone} – VPNH và HH (${it.prefixes.join(', ')} có _2)` };
+          renderStats(); renderChips();
+        };
+        zone.append(r);
+      }
     });
     classified += zoneSum;
     const sum = document.createElement('div'); sum.className = 'sum';
@@ -563,9 +617,9 @@ function renderStats() {
 const HOUR = 3600e3;
 const hoursIn = f => f.entry ? (Date.now() - f.entry) / HOUR : null;
 const SUB_TABLES = [
-  { title: 'LOẠI THẺ', rows: [
-    { label: 'Thẻ ngắn hạn', note: 'không có số Tel', test: f => !f.tel },
-    { label: 'Thẻ dài hạn',  note: 'có số Tel',       test: f => !!f.tel } ] },
+  { title: 'THEO HẠN THẺ', rows: [
+    { label: 'Ngắn', test: f => !f.tel },
+    { label: 'Dài',  test: f => !!f.tel } ] },
   { title: 'THỜI GIAN TRONG CÔNG TY', rows: [
     { label: '0h – 9h',       test: f => { const h = hoursIn(f); return h !== null && h < 9; } },
     { label: '9h – 12h',      test: f => { const h = hoursIn(f); return h !== null && h >= 9 && h < 12; } },
