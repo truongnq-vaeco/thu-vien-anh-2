@@ -62,6 +62,8 @@
   #pvInfo:empty{display:none}
   #pvInfo dt{color:var(--muted)}
   #pvInfo dd{margin:0;font-weight:700;word-break:break-word}
+  #pvInfo dd.none{color:#b0b5bd;font-weight:400}
+  .chip .ico{margin-right:5px;font-size:13px}
   .expWarn{display:inline-block;margin-left:8px;padding:1px 8px;border-radius:6px;background:#dc2626;color:#fff;font-size:12px;font-weight:700}
   .zone .cell.f2row{padding:3px 9px;background:#fafbfc}
   .zone .cell.f2row span{font-size:12px;font-weight:500}
@@ -299,7 +301,7 @@ const norm = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[�
 const shortName = n => (n.includes('-') ? n.split('-')[0] : n.replace(/\.[^.]+$/, '')).trim().toLocaleUpperCase('vi');
 const pad = n => String(n).padStart(2, '0');
 const F2_MARK = '_2';
-const APP_VERSION = 'v28.10-b';   // đổi mỗi lần sửa để kiểm tra điện thoại đã nhận bản mới chưa
+const APP_VERSION = 'v28.10-c';   // đổi mỗi lần sửa để kiểm tra điện thoại đã nhận bản mới chưa
 let loadInfo = '';
 
 /* Đọc thông tin nằm trong tên file (tìm lần lượt từ trái qua phải):
@@ -360,15 +362,16 @@ function parseInfo(name) {
     const left = Math.round((d - today) / 864e5);
     const warn = left < 0 ? 'ĐÃ HẾT HẠN' : left <= WARN_DAYS ? `SẮP HẾT HẠN (còn ${left} ngày)` : '';
     rows.push(['Ngày hết hạn', txt, warn]);
-  } else if (expRaw) rows.push(['Ngày hết hạn', up(expRaw)]);
-  return rows.filter(([, v]) => v);
+  } else rows.push(['Ngày hết hạn', up(expRaw)]);
+  return rows;   // luôn hiện đủ các dòng; dòng không có dữ liệu hiện "—"
 }
 function renderInfo(rows) {
   const dl = $('pvInfo');
   dl.textContent = '';
   rows.forEach(([k, v, warn]) => {
     const dt = document.createElement('dt'); dt.textContent = k + ':';
-    const dd = document.createElement('dd'); dd.textContent = v;
+    const dd = document.createElement('dd'); dd.textContent = v || '—';
+    if (!v) dd.className = 'none';
     if (warn) { const w = document.createElement('span'); w.className = 'expWarn'; w.textContent = '⚠ ' + warn; dd.append(w); }
     dl.append(dt, dd);
   });
@@ -549,6 +552,7 @@ const excluded = (f, it) => it.vehicle && f.name.includes(EXCLUDE_VEHICLE);
 const counted  = (f, it) => inGroup(f, it) && !excluded(f, it);
 // Đếm theo đơn vị: dùng đúng nguyên tắc của phần Thống kê (cả 2 khu vực)
 const ALL_ITEMS = STAT_ZONES.flatMap(z => z.items);
+const VEHICLE_PREFIXES = ['3A', '3B', '4A', '4B'];
 const isPerson  = f => ALL_ITEMS.some(it => !it.vehicle && counted(f, it));
 const isVehicle = f => ALL_ITEMS.some(it =>  it.vehicle && counted(f, it));
 
@@ -621,12 +625,13 @@ function renderStats() {
 
 /* ---------- Thống kê phụ: loại thẻ + thời gian trong công ty ---------- */
 const HOUR = 3600e3;
+const hasTel = f => /\d/.test(f.tel || '');   // có số Tel = phần giữa "te" và "tena" có chữ số
 const hoursIn = f => f.entry ? (Date.now() - f.entry) / HOUR : null;
 const SUB_TABLES = [
   // Chỉ đếm thẻ F1 (danh sách `all` đã loại F2 "_2" và thẻ trùng)
   { title: 'THEO HẠN THẺ', rows: [
-    { label: 'Ngắn', test: f => !f.tel },     // F1 không có số Tel
-    { label: 'Dài',  test: f => !!f.tel } ] },  // F1 có số Tel
+    { label: 'Ngắn', test: f => !hasTel(f) },   // F1 không có số Tel
+    { label: 'Dài',  test: f =>  hasTel(f) } ] },  // F1 có số Tel
   { title: 'THỜI GIAN TRONG CÔNG TY', rows: [
     { label: '0h – 9h',       test: f => { const h = hoursIn(f); return h !== null && h < 9; } },
     { label: '9h – 12h',      test: f => { const h = hoursIn(f); return h !== null && h >= 9 && h < 12; } },
@@ -724,7 +729,11 @@ function makeChip(f) {
     const c = document.createElement('span');
     c.className = 'chip' + (f.id === currentId ? ' cur' : '');
     c.dataset.id = f.id;
-    c.textContent = f.short;
+    // Biểu tượng: phương tiện cho thẻ 3A, 3B, 4A, 4B; người cho các thẻ còn lại
+    const ico = document.createElement('span');
+    ico.className = 'ico';
+    ico.textContent = VEHICLE_PREFIXES.includes(f.pre) ? '🚗' : '👤';
+    c.append(ico, f.short);
     if (sortBy === 'date') {               // khi xếp theo thời gian thì hiện thêm giờ và ngày
       const s = document.createElement('small');
       s.textContent = f.timeVN;
