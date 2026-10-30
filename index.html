@@ -215,7 +215,7 @@
   <section class="card" id="top">
     <p class="label">Nhập mã hoặc quét barcode / QR code</p>
     <div class="bar">
-      <input id="q" type="search" placeholder="Gõ tên ảnh…" autocomplete="off" autocapitalize="characters" enterkeyhint="search">
+      <input id="q" type="search" placeholder="Gõ mã thẻ…" autocomplete="off" autocapitalize="characters" enterkeyhint="search">
       <button id="scanBtn">📷 Quét</button>
     </div>
     <div class="countRow">
@@ -294,7 +294,7 @@
 /* ====== CẤU HÌNH ======
    Dán chuỗi mã hóa tạo từ trang ma-hoa.html vào giữa hai dấu nháy.
    (API key và Folder ID nằm bên trong chuỗi này, chỉ giải được khi có mật khẩu) */
-const ENCRYPTED_CONFIG = 'v1.210000.lkl--y6h6_DVkm4kmirzKA.CdBpQfk2Gr7TOnyp.tzHJLRtj-g0u4PgiUkSV0Ujx9seYJpz7RqjZtqnTJAw2JwauokAatMTbUNxmWbPobExeUizDuhvGHl1F_w2KPMFGNTdaDLyRNF-osvgZ9vlUpFq8RePfNdfDT6RiXDKx4a4nyFRwtQ';
+const ENCRYPTED_CONFIG = 'v1.210000.KAMESozM5OJVdw4hTTVaRQ.kzbrBN2chltW6ehH.P-4oL03aiVblVF3L7jHOvoAkhl-DhCq5PoimjHgK5nFBdShTe7pbR1MMPM7KjRqH_lrTg1j5C_6T2WXhIsVhavT_GRI_Z3ccQdkZ_I35OTUs15TQr7egt-sq4vASzTLCYDHR_HUlMw';
 const SCAN_START = 7;    // Sau khi quét: lấy từ ký tự thứ 7 trở đi
 /* ============================================================ */
 
@@ -307,7 +307,7 @@ const norm = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[�
 const shortName = n => (n.includes('-') ? n.split('-')[0] : n.replace(/\.[^.]+$/, '')).trim().toLocaleUpperCase('vi');
 const pad = n => String(n).padStart(2, '0');
 const F2_MARK = '_2';
-const APP_VERSION = 'v30.10-b';   // đổi mỗi lần sửa để kiểm tra điện thoại đã nhận bản mới chưa
+const APP_VERSION = 'v30.10-c';   // đổi mỗi lần sửa để kiểm tra điện thoại đã nhận bản mới chưa
 let loadInfo = '';
 
 /* Đọc thông tin nằm trong tên file (tìm lần lượt từ trái qua phải):
@@ -675,7 +675,7 @@ const SUB_TABLES = [
     { label: 'Dài',  test: f =>  hasTel(f) } ] },  // F1 có số Tel
   { title: 'THỜI GIAN TRONG CÔNG TY', rows: TIME_ROWS },
   // Phương tiện theo khung giờ trong công ty, chia Cá nhân / Cơ quan cho từng khu vực
-  { title: 'PHƯƠNG TIỆN', rows: [...TIME_ROWS, { label: 'Tổng', test: () => true }],
+  { title: 'PHƯƠNG TIỆN Đ/K DÀI HẠN', rows: [...TIME_ROWS, { label: 'Tổng', test: () => true }],
     cols: z => z.items.filter(it => it.vehicle).flatMap(it => [
       { label: 'Cá nhân', match: f => counted(f, it) && f.ptype === 'person' },
       { label: 'Cơ quan', match: f => counted(f, it) && f.ptype === 'company' } ]) }
@@ -715,7 +715,7 @@ function renderSubStats() {
         const td = el('td', `n ${z.cls}${n ? '' : ' zero'}${chipFilter && chipFilter.key === key ? ' on' : ''}`, n);
         if (n) td.onclick = () => {
           chipFilter = chipFilter && chipFilter.key === key ? null
-            : { key, match, text: `${tb.title === 'PHƯƠNG TIỆN' ? 'Phương tiện ' : ''}${r.label} – ${z.zone} – ${it.label}` };
+            : { key, match, text: `${tb.title.startsWith('PHƯƠNG TIỆN') ? 'Phương tiện ' : ''}${r.label} – ${z.zone} – ${it.label}` };
           renderStats(); renderChips();
           $('chips').scrollIntoView({ behavior: 'smooth', block: 'start' });
         };
@@ -933,7 +933,7 @@ async function refresh() {
     renderChips();
     const diff = before ? all.length - before : 0;
     const t = new Date();
-    $('updated').textContent = `${APP_VERSION} · ${loadInfo} · Cập nhật lúc ${pad(t.getHours())}:${pad(t.getMinutes())}:${pad(t.getSeconds())}`
+    $('updated').textContent = `${APP_VERSION} · Cập nhật lúc ${pad(t.getHours())}:${pad(t.getMinutes())}:${pad(t.getSeconds())}`
       + (diff > 0 ? ` · thêm ${diff} file mới` : diff < 0 ? ` · bớt ${-diff} file` : '');
   } catch (err) {
     $('count').textContent = 'Không tải được ảnh: ' + err.message;
