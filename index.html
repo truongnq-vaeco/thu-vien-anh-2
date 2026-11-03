@@ -66,6 +66,19 @@
   .chip .ico{margin-right:5px;font-size:13px}
   .chip small{display:block;font-weight:500;font-size:11px;color:var(--muted);margin-top:2px;text-align:center}
   .sub tr.tot td{background:#f7f8fa}
+  #plateQ{flex:1;font-size:16px}
+  #plateMsg{font-size:13px;margin-top:6px;color:var(--accent);font-weight:600}
+  #plateMsg:empty{display:none}
+  #plateMsg.nf{color:#dc2626}
+  #plateScan{position:fixed;inset:0;z-index:20;display:none;flex-direction:column;background:#000}
+  #plateScan.open{display:flex}
+  .pTop{display:flex;align-items:center;justify-content:space-between;color:#fff;padding:calc(12px + env(safe-area-inset-top)) 14px 12px}
+  .pStage{flex:1;display:flex;align-items:center;justify-content:center;overflow:hidden}
+  .pWrap{position:relative;width:100%}
+  #plateVideo{width:100%;height:auto;display:block}
+  #plateGuide{position:absolute;border:3px solid #22c55e;border-radius:8px;box-shadow:0 0 0 9999px rgba(0,0,0,.45)}
+  #plateScanMsg{color:#ddd;text-align:center;font-size:14px;padding:10px 16px 0;min-height:20px}
+  .pTools{display:flex;justify-content:center;padding:12px 16px calc(16px + env(safe-area-inset-bottom))}
   #preview{position:relative}
   #termTag{position:absolute;top:12px;right:12px;border:1px solid #cfd4db;border-radius:6px;padding:2px 8px;font-size:12px;color:#9aa0a8;background:#fff}
   #pvName{padding-right:84px}
@@ -264,6 +277,16 @@
     </div>
     <div id="statOther"></div>
     <div id="subStats"></div>
+    <details class="sub" id="plateBox">
+      <summary>TÌM PHƯƠNG TIỆN</summary>
+      <div class="body">
+        <div class="bar">
+          <input id="plateQ" type="search" placeholder="Gõ biển kiểm soát" autocomplete="off" autocapitalize="characters" enterkeyhint="search">
+          <button id="plateScanBtn">📷 Quét</button>
+        </div>
+        <div id="plateMsg"></div>
+      </div>
+    </details>
   </section>
 
   <!-- 5. Nhãn tên các file hiện có -->
@@ -288,13 +311,22 @@
   <div id="fileReader"></div>
 </div>
 
+<!-- Quét biển kiểm soát -->
+<div id="plateScan">
+  <div class="pTop"><strong>Quét biển kiểm soát</strong><button id="plateScanClose" class="ghost">Đóng</button></div>
+  <div class="pStage"><div class="pWrap"><video id="plateVideo" playsinline muted autoplay></video><div id="plateGuide"></div></div></div>
+  <div id="plateScanMsg"></div>
+  <div class="pTools"><button id="platePhotoBtn">📸 Chụp ảnh biển số</button></div>
+  <input id="platePhoto" type="file" accept="image/*" capture="environment" hidden>
+</div>
+
 <div id="zoom"><img id="zoomImg" alt=""><button id="zoomClose">✕</button></div>
 
 <script>
 /* ====== CẤU HÌNH ======
    Dán chuỗi mã hóa tạo từ trang ma-hoa.html vào giữa hai dấu nháy.
    (API key và Folder ID nằm bên trong chuỗi này, chỉ giải được khi có mật khẩu) */
-const ENCRYPTED_CONFIG = 'v1.210000.KAMESozM5OJVdw4hTTVaRQ.kzbrBN2chltW6ehH.P-4oL03aiVblVF3L7jHOvoAkhl-DhCq5PoimjHgK5nFBdShTe7pbR1MMPM7KjRqH_lrTg1j5C_6T2WXhIsVhavT_GRI_Z3ccQdkZ_I35OTUs15TQr7egt-sq4vASzTLCYDHR_HUlMw';
+const ENCRYPTED_CONFIG = 'v1.210000.H8aCkCiJQReeUI067Eh_1A.RgEQNjC3d18ARE_9.BGo2TOCWmhMFsBOWW1npGh62wmTEfGrfzXANitNlk8KwfrBTyYaqAnxUiSLQPKekLhMIP5Lc1vp_-4znTIdoQQoT3m1MCppUyUbE3CbAW9TCHNNcH-QOPCjgj-XJtsr1QjvkgEusGQ';
 const SCAN_START = 7;    // Sau khi quét: lấy từ ký tự thứ 7 trở đi
 /* ============================================================ */
 
@@ -307,7 +339,7 @@ const norm = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[�
 const shortName = n => (n.includes('-') ? n.split('-')[0] : n.replace(/\.[^.]+$/, '')).trim().toLocaleUpperCase('vi');
 const pad = n => String(n).padStart(2, '0');
 const F2_MARK = '_2';
-const APP_VERSION = 'v30.10-c';   // đổi mỗi lần sửa để kiểm tra điện thoại đã nhận bản mới chưa
+const APP_VERSION = 'v03.11-a';   // đổi mỗi lần sửa để kiểm tra điện thoại đã nhận bản mới chưa
 let loadInfo = '';
 
 /* Đọc thông tin nằm trong tên file (tìm lần lượt từ trái qua phải):
@@ -375,14 +407,14 @@ const WARN_DAYS = 14;   // cảnh báo khi hạn thẻ còn từ 14 ngày trở 
 function parseInfo(name) {
   const { tel, nm, code, time, entry, expiry, expRaw, plate, ptype } = fileFields(name);
   const up = v => v.toLocaleUpperCase('vi');
-  let exp = ['Ngày hết hạn', expRaw ? up(expRaw) : ''];
+  let exp = ['Hạn Đăng kiểm', expRaw ? up(expRaw) : ''];
   if (expiry) {
     const d = expiry;
     const txt = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const left = Math.round((d - today) / 864e5);
     const warn = left < 0 ? 'ĐÃ HẾT HẠN' : left <= WARN_DAYS ? `SẮP HẾT HẠN (còn ${left} ngày)` : '';
-    exp = ['Ngày hết hạn', txt, warn];
+    exp = ['Hạn Đăng kiểm', txt, warn];
   }
   // Thứ tự hiển thị từ trên xuống dưới
   const rows = [
@@ -390,7 +422,7 @@ function parseInfo(name) {
     ['Tên người', up(nm)],
     ['Mã', up(code)],
     ['Biển kiểm soát', plate],
-    ['Phương tiện', ptName(ptype)],
+    ['Sử dụng', ptName(ptype)],
     exp,
     ['Thời gian', time ? up(time) + (entry ? ` (${stayText(entry)})` : '') : '']
   ];
@@ -455,6 +487,7 @@ async function loadFiles() {
     f.entry = fx.entry;                                           // thời điểm vào
     f.plate = fx.plate;                                           // biển kiểm soát
     f.ptype = fx.ptype;                                           // person / company
+    f.expiry = fx.expiry;                                         // hạn đăng kiểm (Date)
   });
   // F2 = file có "_2" trong số thẻ (VD 3BHCM70_2): KHÔNG hiển thị, KHÔNG tính thống kê,
   // chỉ hiện ảnh bên dưới F1 cùng số thẻ (VD 3BHCM70).
@@ -663,6 +696,8 @@ function renderStats() {
 const HOUR = 3600e3;
 const hasTel = f => /\d/.test(f.tel || '');   // có số Tel = phần giữa "te" và "tena" có chữ số
 const hoursIn = f => f.entry ? (Date.now() - f.entry) / HOUR : null;
+// Số ngày còn lại tới hạn đăng kiểm (âm = đã quá hạn), null nếu không có
+const daysLeft = f => { if (!f.expiry) return null; const t = new Date(); t.setHours(0, 0, 0, 0); return Math.round((f.expiry - t) / 864e5); };
 const TIME_ROWS = [
     { label: '0h – 9h',       test: f => { const h = hoursIn(f); return h !== null && h < 9; } },
     { label: '9h – 12h',      test: f => { const h = hoursIn(f); return h !== null && h >= 9 && h < 12; } },
@@ -675,7 +710,9 @@ const SUB_TABLES = [
     { label: 'Dài',  test: f =>  hasTel(f) } ] },  // F1 có số Tel
   { title: 'THỜI GIAN TRONG CÔNG TY', rows: TIME_ROWS },
   // Phương tiện theo khung giờ trong công ty, chia Cá nhân / Cơ quan cho từng khu vực
-  { title: 'PHƯƠNG TIỆN Đ/K DÀI HẠN', rows: [...TIME_ROWS, { label: 'Tổng', test: () => true }],
+  { title: 'PHƯƠNG TIỆN Đ/K DÀI HẠN', rows: [...TIME_ROWS,
+      { label: 'Hạn <15 ngày', paren: true, test: f => { const d = daysLeft(f); return d !== null && d < 15; } },
+      { label: 'Tổng', test: () => true }],
     cols: z => z.items.filter(it => it.vehicle).flatMap(it => [
       { label: 'Cá nhân', match: f => counted(f, it) && f.ptype === 'person' },
       { label: 'Cơ quan', match: f => counted(f, it) && f.ptype === 'company' } ]) }
@@ -712,7 +749,7 @@ function renderSubStats() {
         const match = f => r.test(f) && it.match(f);
         const n = all.filter(match).length;
         const key = `sub|${tb.title}|${r.label}|${z.zone}|${it.label}`;
-        const td = el('td', `n ${z.cls}${n ? '' : ' zero'}${chipFilter && chipFilter.key === key ? ' on' : ''}`, n);
+        const td = el('td', `n ${z.cls}${n ? '' : ' zero'}${chipFilter && chipFilter.key === key ? ' on' : ''}`, r.paren ? `(${n})` : n);
         if (n) td.onclick = () => {
           chipFilter = chipFilter && chipFilter.key === key ? null
             : { key, match, text: `${tb.title.startsWith('PHƯƠNG TIỆN') ? 'Phương tiện ' : ''}${r.label} – ${z.zone} – ${it.label}` };
@@ -908,6 +945,213 @@ $('chips').addEventListener('click', e => {
   $('preview').scrollIntoView({ behavior: 'smooth', block: 'start' });
 });
 $('chipFilterClear').onclick = () => { chipFilter = null; renderStats(); renderChips(); };
+
+/* ================= TÌM PHƯƠNG TIỆN THEO BIỂN KIỂM SOÁT ================= */
+// Chuẩn hóa biển: chỉ giữ chữ và số, viết hoa (bỏ ".", "-", khoảng trắng)
+const plateKey = t => (t || '').normalize('NFKC').toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+function lev(a, b) {                       // khoảng cách sửa chữ (cho tìm gần đúng)
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i]);
+  for (let j = 1; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++)
+    d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+  return d[a.length][b.length];
+}
+
+function searchPlate(fromScan) {
+  const q = plateKey($('plateQ').value);
+  const msg = $('plateMsg');
+  msg.className = '';
+  if (!q) {
+    msg.textContent = '';
+    if (chipFilter && chipFilter.key === 'plate') { chipFilter = null; renderStats(); renderChips(); }
+    return;
+  }
+  let match = f => plateKey(f.plate).includes(q);
+  let found = all.filter(match);
+  let near = false;
+  // Quét bằng camera mà không khớp chính xác: thử tìm gần đúng (sai 1 ký tự)
+  if (!found.length && fromScan && q.length >= 6) {
+    match = f => f.plate && lev(plateKey(f.plate), q) <= 1;
+    found = all.filter(match);
+    near = found.length > 0;
+  }
+  if (!found.length) {
+    msg.textContent = 'Không tìm thấy phương tiện có biển "' + q + '"';
+    msg.className = 'nf';
+    if (chipFilter && chipFilter.key === 'plate') { chipFilter = null; renderStats(); renderChips(); }
+    return;
+  }
+  msg.textContent = (near ? 'Gần đúng: ' : 'Tìm thấy ') + found.length + ' phương tiện';
+  chipFilter = { key: 'plate', match, text: `Biển kiểm soát ${near ? 'gần giống' : 'chứa'} "${q}"` };
+  renderStats(); renderChips();
+  showFile(found[0]);
+  $('preview').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+let plateT;
+$('plateQ').addEventListener('input', () => { clearTimeout(plateT); plateT = setTimeout(() => searchPlate(false), 300); });
+$('plateQ').addEventListener('keydown', e => { if (e.key === 'Enter') { searchPlate(false); e.target.blur(); } });
+
+/* ---------- Đọc biển số từ chữ nhận diện được ---------- */
+// Biển VN dạng gọn: 2 số tỉnh + 1–2 ký tự seri (chữ, có thể kèm số) + 4–5 số. VD 51M58560, 59X112345, 30A12345
+const TO_DIGIT  = { O: '0', D: '0', Q: '0', I: '1', L: '1', Z: '2', S: '5', B: '8', G: '6' };
+const TO_LETTER = { '0': 'D', '8': 'B', '5': 'S', '2': 'Z', '6': 'G', '4': 'A' };
+// Đổi ký tự nhầm sang số; trả về [chuỗi, số lần phải sửa]
+function asDigits(t) {
+  let n = 0;
+  const out = [...t].map(c => { if (/\d/.test(c)) return c; n++; return TO_DIGIT[c] || 'x'; }).join('');
+  return [out, n];
+}
+// Chọn chuỗi giống biển số nhất: dài (8–9 ký tự) và phải sửa ít ký tự nhầm nhất
+function extractPlate(text) {
+  const s = plateKey(text);
+  let best = '', bestScore = -1e9;
+  for (let i = 0; i + 7 <= s.length; i++) {
+    const [prov, n1] = asDigits(s.slice(i, i + 2));
+    if (!/^\d\d$/.test(prov) || +prov < 11) continue;
+    for (const L of [1, 2]) {
+      let ser = s.slice(i + 2, i + 2 + L);
+      if (ser.length < L) continue;
+      let n2 = 0, c0 = ser[0];
+      if (!/[A-Z]/.test(c0)) { c0 = TO_LETTER[c0]; n2 = 1; }
+      if (!c0) continue;
+      ser = c0 + ser.slice(1);
+      for (const T of [5, 4]) {
+        const tail = s.slice(i + 2 + L, i + 2 + L + T);
+        if (tail.length < T) continue;
+        const [td, n3] = asDigits(tail);
+        if (!/^\d+$/.test(td)) continue;
+        const cand = prov + ser + td;
+        const score = cand.length + (cand.length >= 8 ? 2 : 0) - 2 * (n1 + n2 + n3);
+        if (score > bestScore) { bestScore = score; best = cand; }
+      }
+    }
+  }
+  return bestScore >= 4 ? best : '';
+}
+
+/* ---------- Camera + nhận diện chữ (Tesseract.js, tải khi dùng lần đầu) ---------- */
+const TESS_URL = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';
+let ocrWorker = null, ocrLoading = null, plateStream = null, plateRunning = false;
+
+function loadOcr() {
+  if (ocrWorker) return Promise.resolve(ocrWorker);
+  if (ocrLoading) return ocrLoading;
+  ocrLoading = new Promise((res, rej) => {
+    const go = async () => {
+      try {
+        const w = await Tesseract.createWorker('eng');
+        await w.setParameters({ tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-.', tessedit_pageseg_mode: '6' });
+        ocrWorker = w; res(w);
+      } catch (e) { ocrLoading = null; rej(e); }
+    };
+    if (window.Tesseract) return go();
+    const sc = document.createElement('script');
+    sc.src = TESS_URL; sc.onload = go;
+    sc.onerror = () => { ocrLoading = null; rej(new Error('Không tải được bộ nhận diện chữ (kiểm tra mạng)')); };
+    document.head.append(sc);
+  });
+  return ocrLoading;
+}
+
+function plateStatus(t) { $('plateScanMsg').textContent = t; }
+
+async function openPlateScan() {
+  $('plateScan').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  plateStatus('Đang mở camera…');
+  try {
+    plateStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false });
+    const v = $('plateVideo');
+    v.srcObject = plateStream;
+    await v.play();
+    fitGuide();
+  } catch (e) {
+    plateStatus('Không mở được camera. Cho phép trình duyệt dùng camera, hoặc bấm "Chụp ảnh biển số".');
+    return;
+  }
+  plateStatus('Đang tải bộ nhận diện chữ (lần đầu khoảng 10 MB)…');
+  try { await loadOcr(); } catch (e) { plateStatus(e.message); return; }
+  plateStatus('Đưa biển số vào giữa khung, giữ yên…');
+  plateRunning = true;
+  plateLoop();
+}
+
+function fitGuide() {                      // khung ngắm: rộng 80%, cao = 45% chiều rộng khung
+  const v = $('plateVideo'), g = $('plateGuide');
+  const w = v.clientWidth, h = v.clientHeight, gw = w * 0.8, gh = Math.min(h * 0.9, gw * 0.45);
+  Object.assign(g.style, { width: gw + 'px', height: gh + 'px', left: (w - gw) / 2 + 'px', top: (h - gh) / 2 + 'px' });
+}
+window.addEventListener('resize', () => { if ($('plateScan').classList.contains('open')) fitGuide(); });
+
+function grabGuide() {                     // cắt đúng vùng trong khung ngắm, chuyển ảnh xám
+  const v = $('plateVideo'), vw = v.videoWidth, vh = v.videoHeight;
+  const sw = vw * 0.8, sh = Math.min(vh * 0.9, sw * 0.45), sx = (vw - sw) / 2, sy = (vh - sh) / 2;
+  const scale = Math.min(1, 1000 / sw);
+  const c = document.createElement('canvas');
+  c.width = Math.round(sw * scale); c.height = Math.round(sh * scale);
+  const ctx = c.getContext('2d');
+  ctx.filter = 'grayscale(1) contrast(1.6)';
+  ctx.drawImage(v, sx, sy, sw, sh, 0, 0, c.width, c.height);
+  return c;
+}
+
+async function plateLoop() {
+  while (plateRunning) {
+    try {
+      const { data } = await ocrWorker.recognize(grabGuide());
+      if (!plateRunning) break;
+      const p = extractPlate(data.text);
+      const raw = plateKey(data.text);
+      if (p.length >= 7) { plateFound(p); break; }
+      plateStatus(raw ? `Đang đọc: ${raw.slice(0, 14)} … giữ yên, đưa gần hơn` : 'Đưa biển số vào giữa khung, giữ yên…');
+    } catch (e) { plateStatus('Lỗi nhận diện, đang thử lại…'); }
+    await new Promise(r => setTimeout(r, 250));
+  }
+}
+
+function plateFound(p) {
+  if (navigator.vibrate) navigator.vibrate(80);
+  closePlateScan();
+  $('plateBox').open = true;
+  $('plateQ').value = p;
+  searchPlate(true);
+}
+
+function closePlateScan() {
+  plateRunning = false;
+  if (plateStream) { plateStream.getTracks().forEach(t => t.stop()); plateStream = null; }
+  $('plateVideo').srcObject = null;
+  $('plateScan').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+// Chụp ảnh bằng camera gốc (nét hơn) rồi nhận diện
+$('platePhotoBtn').onclick = () => { plateRunning = false; $('platePhoto').value = ''; $('platePhoto').click(); };
+$('platePhoto').onchange = async e => {
+  const file = e.target.files[0];
+  if (!file) { if (plateStream) { plateRunning = true; plateLoop(); } return; }
+  plateStatus('Đang nhận diện biển số trong ảnh…');
+  try {
+    await loadOcr();
+    const img = await createImageBitmap(file);
+    const scale = Math.min(1, 1600 / img.width);
+    const c = document.createElement('canvas');
+    c.width = Math.round(img.width * scale); c.height = Math.round(img.height * scale);
+    const ctx = c.getContext('2d'); ctx.filter = 'grayscale(1) contrast(1.6)';
+    ctx.drawImage(img, 0, 0, c.width, c.height);
+    await ocrWorker.setParameters({ tessedit_pageseg_mode: '11' });     // ảnh toàn cảnh: tìm chữ rời rạc
+    const { data } = await ocrWorker.recognize(c);
+    await ocrWorker.setParameters({ tessedit_pageseg_mode: '6' });
+    const p = extractPlate(data.text);
+    if (p.length >= 7) plateFound(p);
+    else plateStatus('Chưa đọc được biển số. Chụp gần hơn, rõ nét, biển số nằm ngang rồi thử lại.');
+  } catch (err) { plateStatus('Không nhận diện được: ' + err.message); }
+};
+$('plateScanBtn').onclick = openPlateScan;
+$('plateScanClose').onclick = closePlateScan;
+
 $('scanBtn').onclick = openScanner;
 $('scanClose').onclick = closeScanner;
 $('pv2Img').onclick = () => { $('zoomImg').src = $('pv2Img').src; $('zoom').classList.add('open'); };
