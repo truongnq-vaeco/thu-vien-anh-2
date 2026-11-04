@@ -170,7 +170,8 @@
   .unitHead .uc span{background:#fff;border:1px solid var(--line);border-radius:999px;padding:3px 9px;white-space:nowrap}
   .unitHead .uc em{font-style:normal;font-weight:700;color:var(--accent)}
   .unitBody{display:flex;flex-wrap:wrap;gap:8px;padding:10px}
-  .chip{border:1px solid var(--line);background:#f7f8fa;border-radius:8px;padding:7px 11px;font-size:14px;font-weight:600;cursor:pointer;line-height:1.2}
+  .chip{position:relative;border:1px solid var(--line);background:#f7f8fa;border-radius:8px;padding:7px 11px;font-size:14px;font-weight:600;cursor:pointer;line-height:1.2}
+  .chip .newTag{position:absolute;top:-8px;right:-6px;background:#f59e0b;color:#fff;font-size:9px;font-weight:800;line-height:1;padding:3px 5px;border-radius:999px;box-shadow:0 1px 3px rgba(0,0,0,.25);letter-spacing:.2px}
   .chip small{display:block;font-weight:400;font-size:11px;color:var(--muted);margin-top:2px}
   .chip.cur{background:var(--accent);border-color:var(--accent);color:#fff}
   .chip.cur small{color:#dbe7fb}
@@ -1622,7 +1623,7 @@ const norm = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[�
 const shortName = n => (n.includes('-') ? n.split('-')[0] : n.replace(/\.[^.]+$/, '')).trim().toLocaleUpperCase('vi');
 const pad = n => String(n).padStart(2, '0');
 const F2_MARK = '_2';
-const APP_VERSION = 'v03.11-b';   // đổi mỗi lần sửa để kiểm tra điện thoại đã nhận bản mới chưa
+const APP_VERSION = 'v04.11-a';   // đổi mỗi lần sửa để kiểm tra điện thoại đã nhận bản mới chưa
 let loadInfo = '';
 
 /* Đọc thông tin nằm trong tên file (tìm lần lượt từ trái qua phải):
@@ -2091,6 +2092,12 @@ function renderChips() {
   finishChips(list, unitOrder.length);
 }
 
+// Thẻ mới: xuất hiện trong vòng 30 phút (theo thời gian vào trong tên file, không có thì theo lúc tải lên Drive)
+const NEW_MINUTES = 30;
+const isNew = f => { const t = f.entry || f.date; return t && (Date.now() - t) <= NEW_MINUTES * 60e3 && (Date.now() - t) >= -5 * 60e3; };
+// Cập nhật nhãn New mỗi phút (thẻ quá 30 phút tự mất nhãn)
+setInterval(() => { if (all.length && !document.hidden) renderChips(); }, 60e3);
+
 function makeChip(f) {
   {
     const c = document.createElement('span');
@@ -2101,6 +2108,7 @@ function makeChip(f) {
     ico.className = 'ico';
     ico.textContent = VEHICLE_PREFIXES.includes(f.pre) ? '🚗' : '👤';
     c.append(ico, f.short);
+    if (isNew(f)) { const n = document.createElement('span'); n.className = 'newTag'; n.textContent = '★ New'; c.append(n); }
     if (f.plate) { const p = document.createElement('small'); p.textContent = `(${f.plate})`; c.append(p); }
     if (sortBy === 'date') {               // khi xếp theo thời gian thì hiện thêm giờ và ngày
       const s = document.createElement('small');
