@@ -19,6 +19,7 @@
 <style>
   :root{--bg:#f2f4f7;--card:#fff;--text:#1a1d21;--muted:#6b7280;--accent:#0f62c9;--line:#dde1e7;--hi:#e8f0fd;--head:#0f2a4a}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  [hidden]{display:none!important}
   body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
   header{background:#24486a;color:#fff;padding:calc(8px + env(safe-area-inset-top)) 12px 8px;display:flex;align-items:center;gap:10px}
   header .logo{width:52px;height:52px;flex:none;border-radius:10px}
@@ -107,6 +108,8 @@
   #pv2Img.fade{opacity:.2}
   #pvImg.fade{opacity:.2}
   #pvHint{color:#aaa;font-size:14px;padding:24px;text-align:center}
+  .imgErr{color:#ddd;font-size:14px;padding:28px 20px;text-align:center;line-height:1.5}
+  .imgErr a{display:inline-block;margin-top:10px;color:#93c5fd;font-weight:600}
   /* Thống kê */
   .stats{display:grid;grid-template-columns:1fr 1fr;gap:8px}
   .zone{border-radius:12px;overflow:hidden;border:1px solid var(--line)}
@@ -269,11 +272,12 @@
       <img id="pvImg" alt="" hidden>
       <div id="pvNotFound" hidden>⚠ KHÔNG TÌM THẤY ẢNH PHÙ HỢP</div>
       <div id="pvHint">Chưa có ảnh để hiển thị</div>
+      <div id="pvErr" class="imgErr" hidden></div>
     </div>
     <!-- Ảnh F2 (file cùng tên có "_2"), chỉ hiện khi có -->
     <div id="pv2Box" hidden>
       <p class="pv2Label">Ảnh 2</p>
-      <div class="pv2Wrap"><img id="pv2Img" alt=""></div>
+      <div class="pv2Wrap"><img id="pv2Img" alt=""><div id="pv2Err" class="imgErr" hidden></div></div>
     </div>
   </section>
 
@@ -1623,7 +1627,7 @@ const norm = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[�
 const shortName = n => (n.includes('-') ? n.split('-')[0] : n.replace(/\.[^.]+$/, '')).trim().toLocaleUpperCase('vi');
 const pad = n => String(n).padStart(2, '0');
 const F2_MARK = '_2';
-const APP_VERSION = 'v04.11-a';   // đổi mỗi lần sửa để kiểm tra điện thoại đã nhận bản mới chưa
+const APP_VERSION = 'v06.11-a';   // đổi mỗi lần sửa để kiểm tra điện thoại đã nhận bản mới chưa
 let loadInfo = '';
 
 /* Đọc thông tin nằm trong tên file (tìm lần lượt từ trái qua phải):
@@ -1739,6 +1743,38 @@ const dayKey = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate
 const dayVN  = d => `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
 const bigUrl = id => `https://lh3.googleusercontent.com/d/${id}=w1600`;
 const fallbackUrl = id => `https://drive.google.com/thumbnail?id=${id}&sz=w1600`;
+// Dự phòng cuối: tải thẳng file gốc qua Drive API (không cần Google tạo ảnh thu nhỏ – hữu ích với ảnh vừa đưa lên)
+const apiUrl = id => `https://www.googleapis.com/drive/v3/files/${id}?alt=media&key=${API_KEY}`;
+const driveViewUrl = id => `https://drive.google.com/file/d/${id}/view`;
+
+// Tải ảnh lần lượt qua 3 đường; hỏng hết thì hiện thông báo + link mở trên Drive
+function loadDriveImg(img, errEl, f) {
+  const urls = [bigUrl(f.id), fallbackUrl(f.id), apiUrl(f.id)];
+  let k = 0;
+  img.dataset.fid = f.id;
+  errEl.hidden = true;
+  img.hidden = false;
+  img.classList.add('fade');
+  img.onload = () => { if (img.dataset.fid === f.id) img.classList.remove('fade'); };
+  img.onerror = () => {
+    if (img.dataset.fid !== f.id) return;          // đã chuyển sang thẻ khác
+    k++;
+    if (k < urls.length) { img.src = urls[k]; return; }
+    img.hidden = true;
+    errEl.hidden = false;
+    errEl.textContent = '';
+    const p = document.createElement('div');
+    p.textContent = /heic|heif/i.test(f.mimeType || '')
+      ? 'Ảnh định dạng HEIC – điện thoại này không hiển thị được.'
+      : 'Không tải được ảnh. Ảnh có thể vừa đưa lên (Google chưa xử lý xong) hoặc chưa chia sẻ công khai.';
+    const a = document.createElement('a');
+    a.href = driveViewUrl(f.id); a.target = '_blank'; a.rel = 'noopener';
+    a.textContent = 'Mở ảnh trên Google Drive ↗';
+    errEl.append(p, a);
+  };
+  img.src = urls[0];
+  img.alt = f.name;
+}
 
 async function loadFiles() {
   const files = [];
@@ -1746,7 +1782,7 @@ async function loadFiles() {
   do {
     const p = new URLSearchParams({
       q: `'${FOLDER_ID}' in parents and mimeType contains 'image/' and trashed = false`,
-      fields: 'nextPageToken,files(id,name,createdTime)', pageSize: '1000', key: API_KEY
+      fields: 'nextPageToken,files(id,name,createdTime,mimeType)', pageSize: '1000', key: API_KEY
     });
     if (token) p.set('pageToken', token);
     const data = await (await fetch('https://www.googleapis.com/drive/v3/files?' + p)).json();
@@ -1829,11 +1865,7 @@ function showF2(f2) {
   const box = $('pv2Box'), img = $('pv2Img');
   if (!f2) { box.hidden = true; img.removeAttribute('src'); return; }
   box.hidden = false;
-  img.classList.add('fade');
-  img.onerror = () => { img.onerror = null; img.src = fallbackUrl(f2.id); };
-  img.onload = () => img.classList.remove('fade');
-  img.src = bigUrl(f2.id);
-  img.alt = f2.name;
+  loadDriveImg(img, $('pv2Err'), f2);
 }
 
 function showFile(f) {
@@ -1843,6 +1875,8 @@ function showFile(f) {
   const img = $('pvImg');
   $('pvName').classList.remove('nf');
   $('pvName').classList.remove('hasQr');
+  $('pvErr').hidden = true;
+  $('pvImg').dataset.fid = '';
   $('pvInfo').textContent = '';
   // Nhãn góc phải: Dài hạn (có số Tel) / Ngắn hạn (không có số Tel)
   $('termTag').hidden = !f;
@@ -1878,12 +1912,7 @@ function showFile(f) {
   $('pvMeta').textContent = '';
   renderInfo(parseInfo(f.name));
   $('pvHint').hidden = true;
-  img.hidden = false;
-  img.classList.add('fade');
-  img.onerror = () => { img.onerror = null; img.src = fallbackUrl(f.id); };
-  img.onload = () => img.classList.remove('fade');
-  img.src = bigUrl(f.id);
-  img.alt = f.name;
+  loadDriveImg(img, $('pvErr'), f);
 }
 
 /* ---------- 4. Nhãn tên file + sắp xếp ---------- */
