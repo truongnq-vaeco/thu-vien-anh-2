@@ -72,6 +72,22 @@
   #plateMsg:empty{display:none}
   #plateMsg.nf{color:#dc2626}
   #ocrState{font-size:12px;color:var(--muted);margin-top:6px}
+  .chartTop{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13px}
+  #chartReload{padding:5px 10px;font-size:14px}
+  .chartTitle{margin:12px 0 4px;font-size:13px;font-weight:700;color:var(--head)}
+  .chartLeg{display:flex;gap:14px;font-size:12px;color:var(--muted)}
+  .chartLeg i,.pieLeg i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+  .chartSvg{width:100%;height:auto;display:block}
+  .chartSvg .ax{font-size:9px;fill:#6b7280}
+  .chartSvg .val{font-size:9px;font-weight:700;fill:#1f2937}
+  #pieChart{display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+  .pieSvg{width:min(46%,190px);height:auto;flex:none}
+  .pieSvg .pieLbl{font-size:12px;font-weight:700;fill:#fff}
+  .pieLeg{flex:1;min-width:140px;display:flex;flex-direction:column;gap:4px}
+  .pieLeg div{display:flex;align-items:center;gap:4px;font-size:12px;color:var(--text)}
+  .pieLeg span{flex:1;word-break:break-word}
+  #chartState{font-size:11px;color:var(--muted);margin-top:8px}
+  #chartState.err{color:#dc2626;font-size:13px;font-weight:600}
   #ocrState:empty{display:none}
   #ocrState.ok{color:#15803d}
   #ocrState.err{color:#dc2626}
@@ -304,6 +320,18 @@
         </div>
         <div id="plateMsg"></div>
         <div id="ocrState"></div>
+      </div>
+    </details>
+    <details class="sub" id="chartBox">
+      <summary>BIỂU ĐỒ</summary>
+      <div class="body">
+        <div class="chartTop"><span id="chartSum"></span><button id="chartReload" class="ghost">🔄</button></div>
+        <div class="chartTitle">Lượt ra + vào theo giờ (12 tiếng qua)</div>
+        <div class="chartLeg"><span><i style="background:#2563eb"></i>Vào</span><span><i style="background:#f59e0b"></i>Ra</span></div>
+        <div id="barChart"></div>
+        <div class="chartTitle">Lượt ra + vào theo đơn vị (12 tiếng qua)</div>
+        <div id="pieChart"></div>
+        <div id="chartState"></div>
       </div>
     </details>
   </section>
@@ -1614,7 +1642,7 @@ module.exports = QRCode;
 /* ====== CẤU HÌNH ======
    Dán chuỗi mã hóa tạo từ trang ma-hoa.html vào giữa hai dấu nháy.
    (API key và Folder ID nằm bên trong chuỗi này, chỉ giải được khi có mật khẩu) */
-const ENCRYPTED_CONFIG = 'v1.210000.H8aCkCiJQReeUI067Eh_1A.RgEQNjC3d18ARE_9.BGo2TOCWmhMFsBOWW1npGh62wmTEfGrfzXANitNlk8KwfrBTyYaqAnxUiSLQPKekLhMIP5Lc1vp_-4znTIdoQQoT3m1MCppUyUbE3CbAW9TCHNNcH-QOPCjgj-XJtsr1QjvkgEusGQ';
+const ENCRYPTED_CONFIG = 'v1.210000.pyyivgXC3Js5x5sL1bmHvg.mwB73g0WNfn0dpEy.A35gSduZthrvLlwsHoSkeUOOdSV5bsvCeXD9YZ2im_ciRWvcNNcN7UH_7UwHNauUQfnI1jHFNix9IDkSLvz7HxWJf8AKRxhwK3dDH9imIyVg_ceQHrREBkfWNqtlpUWeXjfvbqn22w';
 const SCAN_START = 7;    // Sau khi quét: lấy từ ký tự thứ 7 trở đi
 /* ============================================================ */
 
@@ -1627,7 +1655,7 @@ const norm = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[�
 const shortName = n => (n.includes('-') ? n.split('-')[0] : n.replace(/\.[^.]+$/, '')).trim().toLocaleUpperCase('vi');
 const pad = n => String(n).padStart(2, '0');
 const F2_MARK = '_2';
-const APP_VERSION = 'v06.11-a';   // đổi mỗi lần sửa để kiểm tra điện thoại đã nhận bản mới chưa
+const APP_VERSION = 'v24.11-b';   // đổi mỗi lần sửa để kiểm tra điện thoại đã nhận bản mới chưa
 let loadInfo = '';
 
 /* Đọc thông tin nằm trong tên file (tìm lần lượt từ trái qua phải):
@@ -2482,6 +2510,185 @@ $('plateBox').addEventListener('toggle', () => {
     .then(() => { st.className = 'ok'; st.textContent = '✓ Sẵn sàng quét biển số'; })
     .catch(e => { st.className = 'err'; st.textContent = e.message; });
 });
+
+
+/* ================= BIỂU ĐỒ LƯỢT RA/VÀO (từ file his.csv trên Drive) ================= */
+const HIS_NAME = 'his.csv';
+const CHART_HOURS = 12;
+let hisCache = null, hisAt = 0;
+
+// Đọc CSV (tự nhận dấu phân cách , ; hoặc tab; hỗ trợ ô có dấu ngoặc kép)
+function parseCSV(text) {
+  text = text.replace(/^﻿/, '');
+  const first = text.split(/\r?\n/, 1)[0];
+  const sep = [',', ';', '\t'].map(c => [c, first.split(c).length]).sort((a, b) => b[1] - a[1])[0][0];
+  const rows = []; let row = [], cell = '', q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) {
+      if (c === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; }
+      else cell += c;
+    } else if (c === '"') q = true;
+    else if (c === sep) { row.push(cell); cell = ''; }
+    else if (c === '\n' || c === '\r') {
+      if (c === '\r' && text[i + 1] === '\n') i++;
+      row.push(cell); rows.push(row); row = []; cell = '';
+    } else cell += c;
+  }
+  if (cell !== '' || row.length) { row.push(cell); rows.push(row); }
+  return rows.filter(r => r.some(v => v.trim() !== ''));
+}
+
+// Đọc thời gian: 2026-11-24 15:30[:00], 2026-11-24T15:30, 24/11/2026 15:30[:00], 2026-11-24t15-30-00, số kiểu Excel
+function parseTs(v) {
+  v = (v || '').trim();
+  if (!v || !/\d/.test(v)) return null;          // ô trống hoặc kiểu "/  /       :  :" = chưa ra
+  let m;
+  if (/[zZ]$|[+-]\d\d:?\d\d$/.test(v) && !isNaN(Date.parse(v))) return new Date(v);
+  if ((m = v.match(/^(\d{4})-(\d{1,2})-(\d{1,2})[ Tt](\d{1,2})[:\-](\d{2})(?:[:\-](\d{2}))?/)))
+    return new Date(+m[1], m[2] - 1, +m[3], +m[4], +m[5], +(m[6] || 0));
+  if ((m = v.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})[ T,]+(\d{1,2}):(\d{2})(?::(\d{2}))?/)))
+    return new Date(+m[3], m[2] - 1, +m[1], +m[4], +m[5], +(m[6] || 0));
+  if (/^\d{5}(\.\d+)?$/.test(v)) {                       // số ngày kiểu Excel
+    const u = new Date(Math.round((+v - 25569) * 864e5));
+    return new Date(u.getUTCFullYear(), u.getUTCMonth(), u.getUTCDate(), u.getUTCHours(), u.getUTCMinutes(), u.getUTCSeconds());
+  }
+  const t = Date.parse(v);
+  return isNaN(t) ? null : new Date(t);
+}
+
+async function fetchHis() {
+  // Tìm không phân biệt hoa thường (his.csv, his.CSV, HIS.csv…)
+  const q = `'${FOLDER_ID}' in parents and name contains 'his' and trashed = false`;
+  const p = new URLSearchParams({ q, fields: 'files(id,name,mimeType,modifiedTime)', orderBy: 'modifiedTime desc', pageSize: '50', key: API_KEY });
+  const list = await (await fetch('https://www.googleapis.com/drive/v3/files?' + p)).json();
+  if (list.error) throw new Error(list.error.message);
+  const f = (list.files || []).find(x => x.name.trim().toLowerCase() === HIS_NAME);
+  if (!f) throw new Error(`Không tìm thấy file ${HIS_NAME} trong thư mục ảnh trên Drive.`);
+  const url = f.mimeType === 'application/vnd.google-apps.spreadsheet'
+    ? `https://www.googleapis.com/drive/v3/files/${f.id}/export?mimeType=text/csv&key=${API_KEY}`
+    : `https://www.googleapis.com/drive/v3/files/${f.id}?alt=media&key=${API_KEY}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Không đọc được ${HIS_NAME} (lỗi ${res.status}). Kiểm tra file đã chia sẻ "Bất kỳ ai có đường liên kết".`);
+  const rows = parseCSV(await res.text());
+  if (rows.length < 1) throw new Error(`File ${HIS_NAME} trống.`);
+  const head = rows[0].map(h => h.trim().toLowerCase());
+  const col = n => head.indexOf(n.toLowerCase());
+  const iD = col('Bal_dept'), iIn = col('in_t'), iOut = col('out_t');
+  if (iD < 0 || (iIn < 0 && iOut < 0))
+    throw new Error(`File ${HIS_NAME} thiếu cột Bal_dept / in_t / out_t. Các cột hiện có: ${rows[0].join(', ')}`);
+  return {
+    modified: f.modifiedTime ? new Date(f.modifiedTime) : null,
+    recs: rows.slice(1).map(r => ({
+      dept: ((r[iD] || '').trim() || 'KHÔNG RÕ').toLocaleUpperCase('vi'),
+      tin: iIn >= 0 ? parseTs(r[iIn]) : null,
+      tout: iOut >= 0 ? parseTs(r[iOut]) : null
+    }))
+  };
+}
+
+const CH_COLORS = ['#2563eb', '#f59e0b', '#16a34a', '#dc2626', '#7c3aed', '#0891b2', '#db2777', '#65a30d', '#ea580c', '#475569'];
+const svgEl = (tag, attrs, txt) => {
+  const e = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (txt != null) e.textContent = txt;
+  return e;
+};
+
+function renderCharts(data) {
+  const now = new Date();
+  const end = new Date(now); end.setMinutes(0, 0, 0);          // VD bây giờ 16:xx → hết lúc 16:00
+  const start = new Date(end - CHART_HOURS * 3600e3);          // → bắt đầu 04:00
+  const bins = Array.from({ length: CHART_HOURS }, (_, i) => ({ h: new Date(+start + i * 3600e3).getHours(), vin: 0, vout: 0 }));
+  const byDept = new Map();
+  const add = (t, kind, dept) => {
+    if (!t || t < start || t >= end) return;
+    bins[Math.floor((t - start) / 3600e3)][kind]++;
+    byDept.set(dept, (byDept.get(dept) || 0) + 1);
+  };
+  data.recs.forEach(r => { add(r.tin, 'vin', r.dept); add(r.tout, 'vout', r.dept); });
+  const totIn = bins.reduce((a, b) => a + b.vin, 0), totOut = bins.reduce((a, b) => a + b.vout, 0);
+
+  $('chartSum').innerHTML = '';
+  const sum = $('chartSum');
+  sum.append(`${pad(start.getHours())}h–${pad(end.getHours())}h: `);
+  const b = document.createElement('b'); b.textContent = totIn + totOut; sum.append(b, ` lượt (Vào ${totIn}, Ra ${totOut})`);
+
+  /* --- Biểu đồ cột (xếp chồng Vào + Ra) --- */
+  const W = 360, H = 210, L = 30, R = 6, T = 18, B = 26, cw = (W - L - R) / CHART_HOURS;
+  const maxV = Math.max(1, ...bins.map(x => x.vin + x.vout));
+  const step = Math.max(1, Math.ceil(maxV / 4 / (maxV > 20 ? 5 : 1)) * (maxV > 20 ? 5 : 1));
+  const top = Math.ceil(maxV / step) * step;
+  const y = v => T + (H - T - B) * (1 - v / top);
+  const svg = svgEl('svg', { viewBox: `0 0 ${W} ${H}`, class: 'chartSvg', role: 'img', 'aria-label': 'Lượt ra vào theo giờ' });
+  for (let v = 0; v <= top; v += step) {
+    svg.append(svgEl('line', { x1: L, x2: W - R, y1: y(v), y2: y(v), stroke: '#e5e7eb', 'stroke-width': 1 }));
+    svg.append(svgEl('text', { x: L - 4, y: y(v) + 3, 'text-anchor': 'end', class: 'ax' }, v));
+  }
+  bins.forEach((bn, i) => {
+    const x = L + i * cw + cw * 0.15, w = cw * 0.7;
+    const hIn = y(0) - y(bn.vin), hOut = y(0) - y(bn.vout);
+    if (bn.vin) svg.append(svgEl('rect', { x, y: y(bn.vin), width: w, height: hIn, fill: '#2563eb', rx: 1.5 }));
+    if (bn.vout) svg.append(svgEl('rect', { x, y: y(bn.vin) - hOut, width: w, height: hOut, fill: '#f59e0b', rx: 1.5 }));
+    const tot = bn.vin + bn.vout;
+    if (tot) svg.append(svgEl('text', { x: x + w / 2, y: y(tot) - 3, 'text-anchor': 'middle', class: 'val' }, tot));
+    const tip = svgEl('title', {}, `${pad(bn.h)}h–${pad((bn.h + 1) % 24)}h: Vào ${bn.vin}, Ra ${bn.vout}`);
+    const hit = svgEl('rect', { x: L + i * cw, y: T, width: cw, height: H - T - B, fill: 'transparent' }); hit.append(tip); svg.append(hit);
+    svg.append(svgEl('text', { x: x + w / 2, y: H - B + 12, 'text-anchor': 'middle', class: 'ax' }, bn.h + 'h'));
+  });
+  svg.append(svgEl('text', { x: W - R, y: H - 3, 'text-anchor': 'end', class: 'ax' }, `(khung ${pad(start.getHours())}h → ${pad(end.getHours())}h)`));
+  $('barChart').replaceChildren(svg);
+
+  /* --- Biểu đồ tròn theo đơn vị (gộp phần nhỏ vào "KHÁC") --- */
+  let depts = [...byDept.entries()].sort((a, b) => b[1] - a[1]);
+  if (depts.length > 9) { const rest = depts.slice(8).reduce((a, d) => a + d[1], 0); depts = depts.slice(0, 8).concat([['KHÁC', rest]]); }
+  const total = depts.reduce((a, d) => a + d[1], 0);
+  const pie = $('pieChart'); pie.replaceChildren();
+  if (!total) { pie.textContent = 'Không có lượt ra/vào nào trong 12 tiếng qua.'; return; }
+  const ps = svgEl('svg', { viewBox: '0 0 200 200', class: 'pieSvg', role: 'img', 'aria-label': 'Lượt ra vào theo đơn vị' });
+  let a0 = -Math.PI / 2;
+  depts.forEach(([name, n], i) => {
+    const frac = n / total, a1 = a0 + frac * 2 * Math.PI, col = CH_COLORS[i % CH_COLORS.length];
+    let shape;
+    if (frac >= 0.9999) shape = svgEl('circle', { cx: 100, cy: 100, r: 92, fill: col });
+    else {
+      const p = a => [100 + 92 * Math.cos(a), 100 + 92 * Math.sin(a)];
+      const [x0, y0] = p(a0), [x1, y1] = p(a1);
+      shape = svgEl('path', { d: `M100 100 L${x0} ${y0} A92 92 0 ${frac > 0.5 ? 1 : 0} 1 ${x1} ${y1} Z`, fill: col, stroke: '#fff', 'stroke-width': 1.5 });
+    }
+    shape.append(svgEl('title', {}, `${name}: ${n} lượt`));
+    ps.append(shape);
+    if (frac >= 0.06) {
+      const am = (a0 + a1) / 2;
+      ps.append(svgEl('text', { x: 100 + 58 * Math.cos(am), y: 104 + 58 * Math.sin(am), 'text-anchor': 'middle', class: 'pieLbl' }, Math.round(frac * 100) + '%'));
+    }
+    a0 = a1;
+  });
+  const leg = document.createElement('div'); leg.className = 'pieLeg';
+  depts.forEach(([name, n], i) => {
+    const r = document.createElement('div');
+    const dot = document.createElement('i'); dot.style.background = CH_COLORS[i % CH_COLORS.length];
+    const nm = document.createElement('span'); nm.textContent = name;
+    const v = document.createElement('b'); v.textContent = `${n} (${Math.round(n / total * 100)}%)`;
+    r.append(dot, nm, v); leg.append(r);
+  });
+  pie.append(ps, leg);
+}
+
+async function loadCharts(force) {
+  const st = $('chartState');
+  if (!force && hisCache && Date.now() - hisAt < 60e3) { renderCharts(hisCache); return; }
+  st.className = ''; st.textContent = `⏳ Đang đọc ${HIS_NAME}…`;
+  try {
+    hisCache = await fetchHis(); hisAt = Date.now();
+    renderCharts(hisCache);
+    const t = new Date(), m = hisCache.modified;
+    st.textContent = `Cập nhật lúc ${pad(t.getHours())}:${pad(t.getMinutes())}` +
+      (m ? ` · ${HIS_NAME} sửa lúc ${pad(m.getHours())}:${pad(m.getMinutes())} ${pad(m.getDate())}/${pad(m.getMonth() + 1)}` : '');
+  } catch (e) { st.className = 'err'; st.textContent = e.message; }
+}
+$('chartBox').addEventListener('toggle', () => { if ($('chartBox').open) loadCharts(false); });
+$('chartReload').onclick = () => loadCharts(true);
 
 /* ================= QR CODE SỐ THẺ ================= */
 const QR_PREFIX = 'VAEC0-';   // nội dung QR = "VAEC0-" + số thẻ (khi quét lại, lấy từ ký tự thứ 7 = số thẻ)
