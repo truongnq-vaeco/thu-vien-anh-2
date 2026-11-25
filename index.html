@@ -1693,7 +1693,7 @@ const norm = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[�
 const shortName = n => (n.includes('-') ? n.split('-')[0] : n.replace(/\.[^.]+$/, '')).trim().toLocaleUpperCase('vi');
 const pad = n => String(n).padStart(2, '0');
 const F2_MARK = '_2';
-const APP_VERSION = 'v25.11-d';   // đổi mỗi lần sửa để kiểm tra điện thoại đã nhận bản mới chưa
+const APP_VERSION = 'v25.11-e';   // đổi mỗi lần sửa để kiểm tra điện thoại đã nhận bản mới chưa
 let loadInfo = '';
 
 /* Đọc thông tin nằm trong tên file (tìm lần lượt từ trái qua phải):
@@ -2791,24 +2791,31 @@ let lastAgg = null;   // số liệu biểu đồ 24h gần nhất (do renderCha
 function buildReport() {
   const a = lastAgg, now = new Date(), S = [];
   S.push(`Báo cáo tổng hợp tình hình an ninh ${SITE_SPOKEN}, lúc ${now.getHours()} giờ ${now.getMinutes()}, ngày ${now.getDate()} tháng ${now.getMonth() + 1}.`);
-  S.push(`Trong 24 giờ qua có ${a.totIn + a.totOut} lượt ra vào, gồm ${a.totIn} lượt vào và ${a.totOut} lượt ra.`);
+  const tot = a.totIn + a.totOut;
+  S.push(`Trong 24 giờ qua có ${tot} lượt ra vào, gồm ${a.totIn} lượt vào và ${a.totOut} lượt ra.`);
   const peak = list => list.reduce((b, x) => (x.vin + x.vout > (b ? b.vin + b.vout : 0) ? x : b), null);
   const am = peak(a.bins.filter(b => b.h < 12)), pm = peak(a.bins.filter(b => b.h >= 12));
   const ptxt = p => p ? `${p.h} giờ, với ${p.vin + p.vout} lượt` : 'không có lượt nào';
   S.push(`Giờ cao điểm buổi sáng là ${ptxt(am)}, và buổi chiều là ${ptxt(pm)}.`);
+  // Đơn vị có khách/phương tiện ra vào trong 24 giờ (theo his.csv) + 3 đơn vị nhiều lượt nhất, kèm tỉ lệ %
+  const pct = n => tot ? Math.round(n / tot * 100) : 0;
   const top = [...a.byDept.entries()].sort((x, y) => y[1] - x[1]).slice(0, 3);
-  if (top.length) S.push(`${['', 'Đơn vị', 'Hai đơn vị', 'Ba đơn vị'][top.length]} nhiều lượt nhất: ${top.map(([d, n]) => `${spokenUnit(d)} ${n} lượt`).join(', ')}.`);
+  if (top.length) S.push(`Xin báo cáo trong 24 giờ qua tổng cộng có ${a.byDept.size} đơn vị có khách và phương tiện, và ${['', 'đơn vị', 'hai đơn vị', 'ba đơn vị'][top.length]} nhiều lượt nhất: ` +
+    top.map(([d, n]) => `${spokenUnit(d)} ${n} lượt chiếm ${pct(n)} phần trăm`).join(', ') + '.');
+  else S.push('Xin báo cáo trong 24 giờ qua không có đơn vị nào có khách và phương tiện ra vào.');
+  // Số liệu hiện tại theo khung Thống kê
   const zc = z => {
     const p = z.items.find(it => !it.vehicle), v = z.items.find(it => it.vehicle);
-    return { people: all.filter(f => counted(f, p)).length, veh: all.filter(f => counted(f, v)).length,
-             vpnh: all.filter(f => f.f2 && counted(f, p)).length };
+    const pp = all.filter(f => counted(f, p)), vv = all.filter(f => counted(f, v));
+    return { pp, vv, people: pp.length, veh: vv.length, vpnh: all.filter(f => f.f2 && counted(f, p)).length };
   };
   const hc = zc(STAT_ZONES.find(z => z.cls === 'limit')), khc = zc(STAT_ZONES.find(z => z.cls === 'free'));
   S.push(`Hiện tại trong khu vực hạn chế: ${hc.people} người, ${hc.veh} phương tiện, ${hc.vpnh} vật phẩm nguy hiểm và hàng hóa. Khu vực không hạn chế: ${khc.people} người, ${khc.veh} phương tiện.`);
+  const units = new Set([...hc.pp, ...hc.vv, ...khc.pp, ...khc.vv].map(f => f.unit).filter(u => u && u !== NO_UNIT));
+  S.push(`Báo cáo như vậy hiện tại đang có ${hc.people + khc.people} người và ${hc.veh + khc.veh} phương tiện ở trong công ty của ${units.size} đơn vị.`);
   const vehAll = all.filter(f => ALL_ITEMS.some(it => it.vehicle && counted(f, it)));
   const soon = vehAll.filter(f => { const d = daysLeft(f); return d !== null && d >= 0 && d < 15; }).length;
-  const over = vehAll.filter(f => { const d = daysLeft(f); return d !== null && d < 0; }).length;
-  S.push(`Có ${soon} phương tiện sắp hết hạn đăng kiểm trong 15 ngày tới.`);
+  S.push(`Xin báo cáo thêm có ${soon} phương tiện sắp hết hạn đăng kiểm trong 15 ngày tới.`);
   S.push('Xin trân trọng cảm ơn.');
   return S;
 }
