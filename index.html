@@ -76,6 +76,10 @@
   #speakBtn{flex:1;font-size:15px;padding:10px}
   #stopBtn{padding:10px 12px}
   #speakRate{width:auto;padding:9px 8px;font-size:14px}
+  .voiceBar{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center;margin:-2px 0 10px;font-size:12px;color:var(--muted)}
+  .voiceBar select{width:auto;max-width:100%;padding:6px 8px;font-size:13px}
+  #speakVoice{flex:1;min-width:150px}
+  #voiceTest{padding:6px 10px;font-size:13px}
   #reportText{background:#f7f8fa;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:14px;line-height:1.55;margin-bottom:10px}
   #reportText .now{background:#fef3c7;border-radius:4px}
   .voiceWarn{margin-top:8px;color:#b45309;font-size:12px;font-weight:600}
@@ -341,7 +345,14 @@
         <div class="speakBar">
           <button id="speakBtn">🔊 Tổng hợp</button>
           <button id="stopBtn" class="ghost" hidden>⏹ Dừng</button>
-          <select id="speakRate" aria-label="Tốc độ đọc"><option value="0.8">Chậm</option><option value="1" selected>Vừa</option><option value="1.2">Nhanh</option></select>
+          <select id="speakRate" aria-label="Tốc độ đọc"><option value="0.8">Chậm</option><option value="0.9">Hơi chậm</option><option value="1" selected>Vừa</option><option value="1.15">Nhanh</option></select>
+        </div>
+        <div class="voiceBar">
+          <label for="speakVoice">Giọng</label>
+          <select id="speakVoice" aria-label="Chọn giọng đọc"></select>
+          <label for="speakPitch">Cao độ</label>
+          <select id="speakPitch" aria-label="Cao độ giọng"><option value="0.9">Trầm</option><option value="1" selected>Thường</option><option value="1.1">Cao</option></select>
+          <button id="voiceTest" class="ghost" type="button">▶ Nghe thử</button>
         </div>
         <div id="reportText" hidden></div>
         <div class="chartTop"><span id="chartSum"></span><button id="chartReload" class="ghost">🔄</button></div>
@@ -1675,7 +1686,7 @@ const norm = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[�
 const shortName = n => (n.includes('-') ? n.split('-')[0] : n.replace(/\.[^.]+$/, '')).trim().toLocaleUpperCase('vi');
 const pad = n => String(n).padStart(2, '0');
 const F2_MARK = '_2';
-const APP_VERSION = 'v25.11-b';   // đổi mỗi lần sửa để kiểm tra điện thoại đã nhận bản mới chưa
+const APP_VERSION = 'v25.11-c';   // đổi mỗi lần sửa để kiểm tra điện thoại đã nhận bản mới chưa
 let loadInfo = '';
 
 /* Đọc thông tin nằm trong tên file (tìm lần lượt từ trái qua phải):
@@ -2729,7 +2740,7 @@ $('chartBox').addEventListener('toggle', () => { if ($('chartBox').open) loadCha
 $('chartReload').onclick = () => loadCharts(true);
 
 /* ================= BÁO CÁO TỔNG HỢP BẰNG GIỌNG NÓI ================= */
-const SITE_SPOKEN = 'Tân Sơn Nhất SS';   // tên đơn vị đọc ở đầu báo cáo
+const SITE_SPOKEN = 'Tân Sơn Nhất';   // tên đọc ở đầu báo cáo
 // Tên đọc của các mã đơn vị (từ file ten_don_vi.xlsx). Muốn thêm/sửa: thêm dòng "MÃ": "Tên đọc"
 const UNIT_NAMES = {
   "AN": "AN NINH",
@@ -2772,7 +2783,7 @@ let lastAgg = null;   // số liệu biểu đồ 24h gần nhất (do renderCha
 
 function buildReport() {
   const a = lastAgg, now = new Date(), S = [];
-  S.push(`Báo cáo tổng hợp ${SITE_SPOKEN}, lúc ${now.getHours()} giờ ${now.getMinutes()}, ngày ${now.getDate()} tháng ${now.getMonth() + 1}.`);
+  S.push(`Báo cáo tổng hợp tình hình an ninh ${SITE_SPOKEN}, lúc ${now.getHours()} giờ ${now.getMinutes()}, ngày ${now.getDate()} tháng ${now.getMonth() + 1}.`);
   S.push(`Trong 24 giờ qua có ${a.totIn + a.totOut} lượt ra vào, gồm ${a.totIn} lượt vào và ${a.totOut} lượt ra.`);
   const peak = list => list.reduce((b, x) => (x.vin + x.vout > (b ? b.vin + b.vout : 0) ? x : b), null);
   const am = peak(a.bins.filter(b => b.h < 12)), pm = peak(a.bins.filter(b => b.h >= 12));
@@ -2790,16 +2801,45 @@ function buildReport() {
   const vehAll = all.filter(f => ALL_ITEMS.some(it => it.vehicle && counted(f, it)));
   const soon = vehAll.filter(f => { const d = daysLeft(f); return d !== null && d >= 0 && d < 15; }).length;
   const over = vehAll.filter(f => { const d = daysLeft(f); return d !== null && d < 0; }).length;
-  S.push(`Có ${soon} phương tiện sắp hết hạn đăng kiểm trong 15 ngày tới.` + (over ? ` Có ${over} phương tiện đã quá hạn đăng kiểm.` : ''));
+  S.push(`Có ${soon} phương tiện sắp hết hạn đăng kiểm trong 15 ngày tới.`);
   S.push('Xin trân trọng cảm ơn.');
   return S;
 }
 
-function viVoice() {
-  const vs = speechSynthesis.getVoices();
-  return vs.find(v => /^vi/i.test(v.lang) && /google|linh|an\b/i.test(v.name)) || vs.find(v => /^vi/i.test(v.lang)) || null;
+// ---- Chọn giọng: liệt kê mọi giọng tiếng Việt trên máy, nhớ lựa chọn cho lần sau ----
+const LS_VOICE = 'amo_voice', LS_RATE = 'amo_rate', LS_PITCH = 'amo_pitch';
+const lsG = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+const lsS = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+function viVoices() {
+  const vs = ('speechSynthesis' in window) ? speechSynthesis.getVoices() : [];
+  const vi = vs.filter(v => /^vi/i.test(v.lang));
+  // Ưu tiên giọng chất lượng cao: "Nâng cao/Enhanced/Premium", giọng mạng của Google
+  const score = v => (/premium|enhanced|nâng cao|cao cấp/i.test(v.name) ? 3 : 0) + (/google/i.test(v.name) ? 2 : 0) + (v.localService === false ? 1 : 0);
+  return vi.sort((a, b) => score(b) - score(a));
 }
-if ('speechSynthesis' in window) { speechSynthesis.getVoices(); speechSynthesis.onvoiceschanged = () => {}; }
+function fillVoices() {
+  const sel = $('speakVoice'), vs = viVoices(), saved = lsG(LS_VOICE);
+  sel.textContent = '';
+  if (!vs.length) { const o = document.createElement('option'); o.textContent = 'Chưa có giọng tiếng Việt'; o.value = ''; sel.append(o); return; }
+  vs.forEach(v => { const o = document.createElement('option'); o.value = v.name; o.textContent = v.name + (v.localService === false ? ' (online)' : ''); sel.append(o); });
+  if (saved && vs.some(v => v.name === saved)) sel.value = saved;
+}
+function viVoice() {
+  const vs = viVoices(), want = $('speakVoice').value;
+  return vs.find(v => v.name === want) || vs[0] || null;
+}
+if ('speechSynthesis' in window) { speechSynthesis.getVoices(); speechSynthesis.onvoiceschanged = fillVoices; setTimeout(fillVoices, 300); }
+(() => { const r = lsG(LS_RATE), p = lsG(LS_PITCH); if (r) $('speakRate').value = r; if (p) $('speakPitch').value = p; })();
+$('speakVoice').onchange = () => lsS(LS_VOICE, $('speakVoice').value);
+$('speakRate').onchange = () => lsS(LS_RATE, $('speakRate').value);
+$('speakPitch').onchange = () => lsS(LS_PITCH, $('speakPitch').value);
+$('voiceTest').onclick = () => {
+  if (!('speechSynthesis' in window)) return;
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance('Xin chào, đây là giọng đọc báo cáo tình hình an ninh.');
+  const v = viVoice(); u.lang = 'vi-VN'; if (v) u.voice = v; u.rate = +$('speakRate').value; u.pitch = +$('speakPitch').value;
+  speechSynthesis.speak(u);
+};
 
 async function speakReport() {
   const box = $('reportText');
@@ -2820,7 +2860,7 @@ async function speakReport() {
   const rate = +$('speakRate').value;
   spans.forEach((sp, i) => {
     const u = new SpeechSynthesisUtterance(sents[i]);   // đọc từng câu: tránh bị ngắt giữa chừng với đoạn dài
-    u.lang = 'vi-VN'; if (voice) u.voice = voice; u.rate = rate;
+    u.lang = 'vi-VN'; if (voice) u.voice = voice; u.rate = rate; u.pitch = +$('speakPitch').value;
     u.onstart = () => { spans.forEach(x => x.classList.remove('now')); sp.classList.add('now'); $('stopBtn').hidden = false; };
     if (i === spans.length - 1) u.onend = () => { sp.classList.remove('now'); $('stopBtn').hidden = true; };
     speechSynthesis.speak(u);
