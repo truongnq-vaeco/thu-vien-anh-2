@@ -78,6 +78,12 @@
   .chartLeg{display:flex;gap:14px;font-size:12px;color:var(--muted)}
   .chartLeg i,.pieLeg i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
   .chartSvg{width:100%;height:auto;display:block}
+  .barWrap{display:flex;align-items:flex-start}
+  .barWrap .chartSvg{width:auto;flex:none}
+  .barScroll{flex:1;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;scrollbar-width:thin;cursor:grab}
+  .barScroll.drag{cursor:grabbing}
+  .chartSvg .axDay{font-size:9px;font-weight:700;fill:#334155}
+  .swipeHint{font-size:11px;color:var(--muted);text-align:center;margin-top:2px}
   .chartSvg .ax{font-size:9px;fill:#6b7280}
   .chartSvg .val{font-size:9px;font-weight:700;fill:#1f2937}
   #pieChart{display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
@@ -323,13 +329,14 @@
       </div>
     </details>
     <details class="sub" id="chartBox">
-      <summary>BIỂU ĐỒ</summary>
+      <summary>BIỂU ĐỒ 24H QUA</summary>
       <div class="body">
         <div class="chartTop"><span id="chartSum"></span><button id="chartReload" class="ghost">🔄</button></div>
-        <div class="chartTitle">Lượt ra + vào theo giờ (12 tiếng qua)</div>
+        <div class="chartTitle">Lượt ra + vào theo giờ (24 tiếng qua)</div>
         <div class="chartLeg"><span><i style="background:#2563eb"></i>Vào</span><span><i style="background:#f59e0b"></i>Ra</span></div>
         <div id="barChart"></div>
-        <div class="chartTitle">Lượt ra + vào theo đơn vị (12 tiếng qua)</div>
+        <div class="swipeHint">◀ Vuốt sang phải để xem các giờ trước</div>
+        <div class="chartTitle">Lượt ra + vào theo đơn vị (24 tiếng qua)</div>
         <div id="pieChart"></div>
         <div id="chartState"></div>
       </div>
@@ -1642,7 +1649,7 @@ module.exports = QRCode;
 /* ====== CẤU HÌNH ======
    Dán chuỗi mã hóa tạo từ trang ma-hoa.html vào giữa hai dấu nháy.
    (API key và Folder ID nằm bên trong chuỗi này, chỉ giải được khi có mật khẩu) */
-const ENCRYPTED_CONFIG = 'v1.210000.pyyivgXC3Js5x5sL1bmHvg.mwB73g0WNfn0dpEy.A35gSduZthrvLlwsHoSkeUOOdSV5bsvCeXD9YZ2im_ciRWvcNNcN7UH_7UwHNauUQfnI1jHFNix9IDkSLvz7HxWJf8AKRxhwK3dDH9imIyVg_ceQHrREBkfWNqtlpUWeXjfvbqn22w';
+const ENCRYPTED_CONFIG = 'v1.210000.5y1adSecOORnqPSCqTWO9w.r8vAdQqCl8XHuRFV.82RlQT-YJQtyA5RQVJkAacJHVzySnCDTe-dCCGGyycmo2aGAdYHp3dvdhDv9AcL4_1_EK2bD8-rdqNCyAWnz9Lte9VHguvR30OeIEAo3CtGN7_qQbmYLF_rV7DaIdaRcQFHPySRyWw';
 const SCAN_START = 7;    // Sau khi quét: lấy từ ký tự thứ 7 trở đi
 /* ============================================================ */
 
@@ -1655,7 +1662,7 @@ const norm = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[�
 const shortName = n => (n.includes('-') ? n.split('-')[0] : n.replace(/\.[^.]+$/, '')).trim().toLocaleUpperCase('vi');
 const pad = n => String(n).padStart(2, '0');
 const F2_MARK = '_2';
-const APP_VERSION = 'v24.11-b';   // đổi mỗi lần sửa để kiểm tra điện thoại đã nhận bản mới chưa
+const APP_VERSION = 'v25.11-a';   // đổi mỗi lần sửa để kiểm tra điện thoại đã nhận bản mới chưa
 let loadInfo = '';
 
 /* Đọc thông tin nằm trong tên file (tìm lần lượt từ trái qua phải):
@@ -2514,7 +2521,7 @@ $('plateBox').addEventListener('toggle', () => {
 
 /* ================= BIỂU ĐỒ LƯỢT RA/VÀO (từ file his.csv trên Drive) ================= */
 const HIS_NAME = 'his.csv';
-const CHART_HOURS = 12;
+const CHART_HOURS = 24;
 let hisCache = null, hisAt = 0;
 
 // Đọc CSV (tự nhận dấu phân cách , ; hoặc tab; hỗ trợ ô có dấu ngoặc kép)
@@ -2598,8 +2605,8 @@ const svgEl = (tag, attrs, txt) => {
 function renderCharts(data) {
   const now = new Date();
   const end = new Date(now); end.setMinutes(0, 0, 0);          // VD bây giờ 16:xx → hết lúc 16:00
-  const start = new Date(end - CHART_HOURS * 3600e3);          // → bắt đầu 04:00
-  const bins = Array.from({ length: CHART_HOURS }, (_, i) => ({ h: new Date(+start + i * 3600e3).getHours(), vin: 0, vout: 0 }));
+  const start = new Date(end - CHART_HOURS * 3600e3);          // → bắt đầu 16:00 hôm trước
+  const bins = Array.from({ length: CHART_HOURS }, (_, i) => { const d = new Date(+start + i * 3600e3); return { d, h: d.getHours(), vin: 0, vout: 0 }; });
   const byDept = new Map();
   const add = (t, kind, dept) => {
     if (!t || t < start || t >= end) return;
@@ -2611,40 +2618,57 @@ function renderCharts(data) {
 
   $('chartSum').innerHTML = '';
   const sum = $('chartSum');
-  sum.append(`${pad(start.getHours())}h–${pad(end.getHours())}h: `);
+  sum.append(`24h qua (${pad(start.getHours())}h ${pad(start.getDate())}/${pad(start.getMonth() + 1)} → ${pad(end.getHours())}h): `);
   const b = document.createElement('b'); b.textContent = totIn + totOut; sum.append(b, ` lượt (Vào ${totIn}, Ra ${totOut})`);
 
-  /* --- Biểu đồ cột (xếp chồng Vào + Ra) --- */
-  const W = 360, H = 210, L = 30, R = 6, T = 18, B = 26, cw = (W - L - R) / CHART_HOURS;
+  /* --- Biểu đồ cột (xếp chồng Vào + Ra): hiện 12 giờ một lúc, vuốt trái/phải để xem đủ 24 giờ --- */
+  const VIS = 12, W = 360, H = 222, L = 30, R = 8, T = 18, B = 38, cw = (W - L - R) / VIS;
   const maxV = Math.max(1, ...bins.map(x => x.vin + x.vout));
   const step = Math.max(1, Math.ceil(maxV / 4 / (maxV > 20 ? 5 : 1)) * (maxV > 20 ? 5 : 1));
   const top = Math.ceil(maxV / step) * step;
   const y = v => T + (H - T - B) * (1 - v / top);
-  const svg = svgEl('svg', { viewBox: `0 0 ${W} ${H}`, class: 'chartSvg', role: 'img', 'aria-label': 'Lượt ra vào theo giờ' });
+  const box = $('barChart');
+  const scale = (box.clientWidth || 340) / W;                  // giữ kích thước như trước: 12 cột vừa khung
+  const PW = CHART_HOURS * cw + R;                             // chiều rộng toàn bộ 24 cột
+  // Trục dọc cố định bên trái (không trôi khi vuốt)
+  const ax = svgEl('svg', { viewBox: `0 0 ${L} ${H}`, class: 'chartSvg axisSvg', width: L * scale, height: H * scale });
+  // Vùng cột (vuốt ngang được)
+  const svg = svgEl('svg', { viewBox: `0 0 ${PW} ${H}`, class: 'chartSvg', width: PW * scale, height: H * scale, role: 'img', 'aria-label': 'Lượt ra vào theo giờ, 24 giờ qua' });
   for (let v = 0; v <= top; v += step) {
-    svg.append(svgEl('line', { x1: L, x2: W - R, y1: y(v), y2: y(v), stroke: '#e5e7eb', 'stroke-width': 1 }));
-    svg.append(svgEl('text', { x: L - 4, y: y(v) + 3, 'text-anchor': 'end', class: 'ax' }, v));
+    svg.append(svgEl('line', { x1: 0, x2: PW - R, y1: y(v), y2: y(v), stroke: '#e5e7eb', 'stroke-width': 1 }));
+    ax.append(svgEl('text', { x: L - 4, y: y(v) + 3, 'text-anchor': 'end', class: 'ax' }, v));
   }
   bins.forEach((bn, i) => {
-    const x = L + i * cw + cw * 0.15, w = cw * 0.7;
+    const x0 = i * cw, x = x0 + cw * 0.15, w = cw * 0.7;
     const hIn = y(0) - y(bn.vin), hOut = y(0) - y(bn.vout);
     if (bn.vin) svg.append(svgEl('rect', { x, y: y(bn.vin), width: w, height: hIn, fill: '#2563eb', rx: 1.5 }));
     if (bn.vout) svg.append(svgEl('rect', { x, y: y(bn.vin) - hOut, width: w, height: hOut, fill: '#f59e0b', rx: 1.5 }));
     const tot = bn.vin + bn.vout;
     if (tot) svg.append(svgEl('text', { x: x + w / 2, y: y(tot) - 3, 'text-anchor': 'middle', class: 'val' }, tot));
-    const tip = svgEl('title', {}, `${pad(bn.h)}h–${pad((bn.h + 1) % 24)}h: Vào ${bn.vin}, Ra ${bn.vout}`);
-    const hit = svgEl('rect', { x: L + i * cw, y: T, width: cw, height: H - T - B, fill: 'transparent' }); hit.append(tip); svg.append(hit);
+    const hit = svgEl('rect', { x: x0, y: T, width: cw, height: H - T - B, fill: 'transparent' });
+    hit.append(svgEl('title', {}, `${pad(bn.h)}h–${pad((bn.h + 1) % 24)}h ${pad(bn.d.getDate())}/${pad(bn.d.getMonth() + 1)}: Vào ${bn.vin}, Ra ${bn.vout}`));
+    svg.append(hit);
     svg.append(svgEl('text', { x: x + w / 2, y: H - B + 12, 'text-anchor': 'middle', class: 'ax' }, bn.h + 'h'));
+    // Ghi ngày dưới cột đầu tiên và lúc sang ngày mới (0h)
+    if (i === 0 || bn.h === 0) {
+      if (i > 0) svg.append(svgEl('line', { x1: x0, x2: x0, y1: T, y2: H - B + 16, stroke: '#94a3b8', 'stroke-dasharray': '3 3', 'stroke-width': 1 }));
+      svg.append(svgEl('text', { x: x0 + 2, y: H - B + 26, class: 'axDay' }, `${pad(bn.d.getDate())}/${pad(bn.d.getMonth() + 1)}`));
+    }
   });
-  svg.append(svgEl('text', { x: W - R, y: H - 3, 'text-anchor': 'end', class: 'ax' }, `(khung ${pad(start.getHours())}h → ${pad(end.getHours())}h)`));
-  $('barChart').replaceChildren(svg);
+  const scroller = document.createElement('div'); scroller.className = 'barScroll';
+  scroller.append(svg);
+  const wrap = document.createElement('div'); wrap.className = 'barWrap';
+  wrap.append(ax, scroller);
+  box.replaceChildren(wrap);
+  scroller.scrollLeft = scroller.scrollWidth;                  // mở ra ở giờ gần nhất (bên phải)
+  enableDragScroll(scroller);
 
   /* --- Biểu đồ tròn theo đơn vị (gộp phần nhỏ vào "KHÁC") --- */
   let depts = [...byDept.entries()].sort((a, b) => b[1] - a[1]);
   if (depts.length > 9) { const rest = depts.slice(8).reduce((a, d) => a + d[1], 0); depts = depts.slice(0, 8).concat([['KHÁC', rest]]); }
   const total = depts.reduce((a, d) => a + d[1], 0);
   const pie = $('pieChart'); pie.replaceChildren();
-  if (!total) { pie.textContent = 'Không có lượt ra/vào nào trong 12 tiếng qua.'; return; }
+  if (!total) { pie.textContent = 'Không có lượt ra/vào nào trong 24 tiếng qua.'; return; }
   const ps = svgEl('svg', { viewBox: '0 0 200 200', class: 'pieSvg', role: 'img', 'aria-label': 'Lượt ra vào theo đơn vị' });
   let a0 = -Math.PI / 2;
   depts.forEach(([name, n], i) => {
@@ -2689,6 +2713,16 @@ async function loadCharts(force) {
 }
 $('chartBox').addEventListener('toggle', () => { if ($('chartBox').open) loadCharts(false); });
 $('chartReload').onclick = () => loadCharts(true);
+// Kéo bằng chuột trên máy tính (điện thoại thì vuốt ngón tay sẵn có)
+function enableDragScroll(el) {
+  let x0 = null, s0 = 0;
+  el.addEventListener('pointerdown', e => { if (e.pointerType !== 'mouse') return; x0 = e.clientX; s0 = el.scrollLeft; el.classList.add('drag'); });
+  window.addEventListener('pointermove', e => { if (x0 !== null) el.scrollLeft = s0 - (e.clientX - x0); });
+  window.addEventListener('pointerup', () => { x0 = null; el.classList.remove('drag'); });
+}
+// Xoay màn hình / đổi kích thước: vẽ lại cho vừa khung
+let chartRT;
+window.addEventListener('resize', () => { clearTimeout(chartRT); chartRT = setTimeout(() => { if ($('chartBox').open && hisCache) renderCharts(hisCache); }, 200); });
 
 /* ================= QR CODE SỐ THẺ ================= */
 const QR_PREFIX = 'VAEC0-';   // nội dung QR = "VAEC0-" + số thẻ (khi quét lại, lấy từ ký tự thứ 7 = số thẻ)
