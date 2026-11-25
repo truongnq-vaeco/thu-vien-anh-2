@@ -75,7 +75,10 @@
   .speakBar{display:flex;gap:8px;align-items:center;margin-bottom:10px}
   #speakBtn{flex:1;font-size:15px;padding:10px}
   #stopBtn{padding:10px 12px}
-  #speakRate{width:auto;padding:9px 8px;font-size:14px}
+  #speakRate{width:auto;padding:6px 8px;font-size:13px}
+  .speakBar .tgl{padding:10px 9px;font-size:13px}
+  .speakBar .tgl.on{background:var(--hi);color:var(--accent)}
+  #speakMsg{margin:-4px 0 10px;color:#b45309;font-size:12px;font-weight:600}
   .voiceBar{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center;margin:-2px 0 10px;font-size:12px;color:var(--muted)}
   .voiceBar select{width:auto;max-width:100%;padding:6px 8px;font-size:13px}
   #speakVoice{flex:1;min-width:150px}
@@ -345,16 +348,20 @@
         <div class="speakBar">
           <button id="speakBtn">🔊 Tổng hợp</button>
           <button id="stopBtn" class="ghost" hidden>⏹ Dừng</button>
-          <select id="speakRate" aria-label="Tốc độ đọc"><option value="0.8">Chậm</option><option value="0.9">Hơi chậm</option><option value="1" selected>Vừa</option><option value="1.15">Nhanh</option></select>
+          <button id="toggleVoice" class="ghost tgl" type="button" aria-expanded="false" title="Chọn giọng đọc">⚙ Giọng</button>
+          <button id="toggleText" class="ghost tgl" type="button" aria-expanded="false" title="Xem nội dung báo cáo">📄 Chi tiết</button>
         </div>
-        <div class="voiceBar">
+        <div id="speakMsg" hidden></div>
+        <div class="voiceBar" id="voiceBar" hidden>
+          <label for="speakRate">Tốc độ</label>
+          <select id="speakRate" aria-label="Tốc độ đọc"><option value="0.8">Chậm</option><option value="0.9">Hơi chậm</option><option value="1" selected>Vừa</option><option value="1.15">Nhanh</option></select>
           <label for="speakVoice">Giọng</label>
           <select id="speakVoice" aria-label="Chọn giọng đọc"></select>
           <label for="speakPitch">Cao độ</label>
           <select id="speakPitch" aria-label="Cao độ giọng"><option value="0.9">Trầm</option><option value="1" selected>Thường</option><option value="1.1">Cao</option></select>
           <button id="voiceTest" class="ghost" type="button">▶ Nghe thử</button>
         </div>
-        <div id="reportText" hidden></div>
+        <div id="reportText" hidden>Bấm “🔊 Tổng hợp” để tạo và đọc báo cáo.</div>
         <div class="chartTop"><span id="chartSum"></span><button id="chartReload" class="ghost">🔄</button></div>
         <div class="chartTitle">Lượt ra + vào theo giờ (24 tiếng qua)</div>
         <div class="chartLeg"><span><i style="background:#2563eb"></i>Vào</span><span><i style="background:#f59e0b"></i>Ra</span></div>
@@ -1686,7 +1693,7 @@ const norm = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[�
 const shortName = n => (n.includes('-') ? n.split('-')[0] : n.replace(/\.[^.]+$/, '')).trim().toLocaleUpperCase('vi');
 const pad = n => String(n).padStart(2, '0');
 const F2_MARK = '_2';
-const APP_VERSION = 'v25.11-c';   // đổi mỗi lần sửa để kiểm tra điện thoại đã nhận bản mới chưa
+const APP_VERSION = 'v25.11-d';   // đổi mỗi lần sửa để kiểm tra điện thoại đã nhận bản mới chưa
 let loadInfo = '';
 
 /* Đọc thông tin nằm trong tên file (tìm lần lượt từ trái qua phải):
@@ -2843,20 +2850,17 @@ $('voiceTest').onclick = () => {
 
 async function speakReport() {
   const box = $('reportText');
-  if (!('speechSynthesis' in window)) { box.hidden = false; box.textContent = 'Trình duyệt này không hỗ trợ đọc bằng giọng nói.'; return; }
+  if (!('speechSynthesis' in window)) { speakMsg('Trình duyệt này không hỗ trợ đọc bằng giọng nói.'); return; }
   speechSynthesis.cancel();
   $('speakBtn').disabled = true;
   try { await loadCharts(false); } finally { $('speakBtn').disabled = false; }
-  if (!lastAgg) { box.hidden = false; box.textContent = 'Chưa đọc được số liệu his.csv để tổng hợp.'; return; }
+  if (!lastAgg) { speakMsg('Chưa đọc được số liệu his.csv để tổng hợp.'); return; }
+  speakMsg('');
   const sents = buildReport();
-  box.hidden = false; box.textContent = '';
+  box.textContent = '';   // nội dung chỉ hiện khi bấm "📄 Chi tiết"
   const spans = sents.map(t => { const sp = document.createElement('span'); sp.textContent = t + ' '; box.append(sp); return sp; });
   const voice = viVoice();
-  if (!voice) {
-    const w = document.createElement('div'); w.className = 'voiceWarn';
-    w.textContent = '⚠ Máy chưa có giọng đọc tiếng Việt nên có thể đọc sai. Cài giọng tiếng Việt trong phần Cài đặt của điện thoại (xem hướng dẫn).';
-    box.append(w);
-  }
+  if (!voice) speakMsg('⚠ Máy chưa có giọng đọc tiếng Việt nên có thể đọc sai. Cài giọng tiếng Việt trong Cài đặt của điện thoại.');
   const rate = +$('speakRate').value;
   spans.forEach((sp, i) => {
     const u = new SpeechSynthesisUtterance(sents[i]);   // đọc từng câu: tránh bị ngắt giữa chừng với đoạn dài
@@ -2867,6 +2871,18 @@ async function speakReport() {
   });
 }
 $('speakBtn').onclick = speakReport;
+function speakMsg(t) { $('speakMsg').textContent = t; $('speakMsg').hidden = !t; }
+// Nút mở/thu: phần chọn giọng và nội dung báo cáo (mặc định ẩn)
+function bindToggle(btn, panel) {
+  $(btn).onclick = () => {
+    const show = $(panel).hidden;
+    $(panel).hidden = !show;
+    $(btn).classList.toggle('on', show);
+    $(btn).setAttribute('aria-expanded', show);
+  };
+}
+bindToggle('toggleVoice', 'voiceBar');
+bindToggle('toggleText', 'reportText');
 $('stopBtn').onclick = () => { speechSynthesis.cancel(); $('stopBtn').hidden = true; document.querySelectorAll('#reportText .now').forEach(x => x.classList.remove('now')); };
 $('chartBox').addEventListener('toggle', () => { if (!$('chartBox').open && 'speechSynthesis' in window) $('stopBtn').click(); });
 
