@@ -85,6 +85,8 @@
   #voiceTest{padding:6px 10px;font-size:13px}
   #reportText{background:#f7f8fa;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:14px;line-height:1.55;margin-bottom:10px}
   #reportText .now{background:#fef3c7;border-radius:4px}
+  #reportText p{margin:0 0 8px}
+  #reportText p:last-child{margin:0}
   .voiceWarn{margin-top:8px;color:#b45309;font-size:12px;font-weight:600}
   .chartTop{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13px}
   #chartReload{padding:5px 10px;font-size:14px}
@@ -1693,7 +1695,7 @@ const norm = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[�
 const shortName = n => (n.includes('-') ? n.split('-')[0] : n.replace(/\.[^.]+$/, '')).trim().toLocaleUpperCase('vi');
 const pad = n => String(n).padStart(2, '0');
 const F2_MARK = '_2';
-const APP_VERSION = 'v25.11-e';   // đổi mỗi lần sửa để kiểm tra điện thoại đã nhận bản mới chưa
+const APP_VERSION = 'v26.11-a';   // đổi mỗi lần sửa để kiểm tra điện thoại đã nhận bản mới chưa
 let loadInfo = '';
 
 /* Đọc thông tin nằm trong tên file (tìm lần lượt từ trái qua phải):
@@ -2788,36 +2790,74 @@ const spokenUnit = code => UNIT_NAMES[code] ? niceName(UNIT_NAMES[code])
 
 let lastAgg = null;   // số liệu biểu đồ 24h gần nhất (do renderCharts lưu lại)
 
+// Báo cáo gồm 5 đoạn; đoạn 3 và 4 chỉ có khi có số liệu. Trả về mảng các đoạn (mỗi đoạn là 1 chuỗi)
 function buildReport() {
-  const a = lastAgg, now = new Date(), S = [];
-  S.push(`Báo cáo tổng hợp tình hình an ninh ${SITE_SPOKEN}, lúc ${now.getHours()} giờ ${now.getMinutes()}, ngày ${now.getDate()} tháng ${now.getMonth() + 1}.`);
+  const a = lastAgg, now = new Date(), P = [];
   const tot = a.totIn + a.totOut;
-  S.push(`Trong 24 giờ qua có ${tot} lượt ra vào, gồm ${a.totIn} lượt vào và ${a.totOut} lượt ra.`);
+  const pct = n => tot ? Math.round(n / tot * 100) : 0;
   const peak = list => list.reduce((b, x) => (x.vin + x.vout > (b ? b.vin + b.vout : 0) ? x : b), null);
   const am = peak(a.bins.filter(b => b.h < 12)), pm = peak(a.bins.filter(b => b.h >= 12));
   const ptxt = p => p ? `${p.h} giờ, với ${p.vin + p.vout} lượt` : 'không có lượt nào';
-  S.push(`Giờ cao điểm buổi sáng là ${ptxt(am)}, và buổi chiều là ${ptxt(pm)}.`);
-  // Đơn vị có khách/phương tiện ra vào trong 24 giờ (theo his.csv) + 3 đơn vị nhiều lượt nhất, kèm tỉ lệ %
-  const pct = n => tot ? Math.round(n / tot * 100) : 0;
   const top = [...a.byDept.entries()].sort((x, y) => y[1] - x[1]).slice(0, 3);
-  if (top.length) S.push(`Xin báo cáo trong 24 giờ qua tổng cộng có ${a.byDept.size} đơn vị có khách và phương tiện, và ${['', 'đơn vị', 'hai đơn vị', 'ba đơn vị'][top.length]} nhiều lượt nhất: ` +
-    top.map(([d, n]) => `${spokenUnit(d)} ${n} lượt chiếm ${pct(n)} phần trăm`).join(', ') + '.');
-  else S.push('Xin báo cáo trong 24 giờ qua không có đơn vị nào có khách và phương tiện ra vào.');
-  // Số liệu hiện tại theo khung Thống kê
+
+  // Đoạn 1: tình hình ra vào 24 giờ qua (theo his.csv)
+  let p1 = `Báo cáo tổng hợp tình hình an ninh ${SITE_SPOKEN}, lúc ${now.getHours()} giờ ${now.getMinutes()}, ngày ${now.getDate()} tháng ${now.getMonth() + 1}. ` +
+    `Trong 24 giờ qua có ${tot} lượt ra vào, gồm ${a.totIn} lượt vào và ${a.totOut} lượt ra. ` +
+    `Giờ cao điểm buổi sáng là ${ptxt(am)}, và buổi chiều là ${ptxt(pm)}. `;
+  p1 += top.length
+    ? `Trong 24 giờ qua tổng cộng có ${a.byDept.size} đơn vị có khách và phương tiện, trong đó có ${['', 'một', 'hai', 'ba'][top.length]} đơn vị nhiều lượt nhất: ` +
+      top.map(([d, n]) => `${spokenUnit(d)} ${n} lượt chiếm ${pct(n)} phần trăm`).join(', ') + '.'
+    : 'Trong 24 giờ qua không có đơn vị nào có khách và phương tiện ra vào.';
+  P.push(p1);
+
+  // Đoạn 2: số lượng hiện tại (theo khung Thống kê)
   const zc = z => {
     const p = z.items.find(it => !it.vehicle), v = z.items.find(it => it.vehicle);
     const pp = all.filter(f => counted(f, p)), vv = all.filter(f => counted(f, v));
     return { pp, vv, people: pp.length, veh: vv.length, vpnh: all.filter(f => f.f2 && counted(f, p)).length };
   };
   const hc = zc(STAT_ZONES.find(z => z.cls === 'limit')), khc = zc(STAT_ZONES.find(z => z.cls === 'free'));
-  S.push(`Hiện tại trong khu vực hạn chế: ${hc.people} người, ${hc.veh} phương tiện, ${hc.vpnh} vật phẩm nguy hiểm và hàng hóa. Khu vực không hạn chế: ${khc.people} người, ${khc.veh} phương tiện.`);
   const units = new Set([...hc.pp, ...hc.vv, ...khc.pp, ...khc.vv].map(f => f.unit).filter(u => u && u !== NO_UNIT));
-  S.push(`Báo cáo như vậy hiện tại đang có ${hc.people + khc.people} người và ${hc.veh + khc.veh} phương tiện ở trong công ty của ${units.size} đơn vị.`);
+  P.push(`Hiện tại số lượng trong khu vực hạn chế: ${hc.people} người, ${hc.veh} phương tiện, ${hc.vpnh} vật phẩm nguy hiểm. ` +
+    `Khu vực không hạn chế có: ${khc.people} người, ${khc.veh} phương tiện. ` +
+    `Hiện tại đang có ${hc.people + khc.people} người và ${hc.veh + khc.veh} phương tiện của ${units.size} đơn vị đang ở trong công ty.`);
+
+  // Đoạn 3: phương tiện cá nhân (Đ/K dài hạn) ở trong công ty quá 1 ngày – gom theo đơn vị
   const vehAll = all.filter(f => ALL_ITEMS.some(it => it.vehicle && counted(f, it)));
+  const overstay = vehAll.filter(f => f.ptype === 'person' && hoursIn(f) !== null && hoursIn(f) >= 24);
+  if (overstay.length) {
+    const byU = new Map();
+    overstay.forEach(f => { const u = f.unit && f.unit !== NO_UNIT ? f.unit : 'KHÔNG RÕ'; byU.set(u, (byU.get(u) || 0) + 1); });
+    const list = [...byU.entries()].sort((x, y) => y[1] - x[1])
+      .map(([u, n]) => `${u === 'KHÔNG RÕ' ? 'đơn vị chưa rõ' : spokenUnit(u)} có ${n} phương tiện`).join(', ');
+    P.push(`Xin được báo cáo thêm, hiện đang có ${overstay.length} phương tiện đang để quá thời gian quy định, bao gồm phương tiện cá nhân của ${list}. ` +
+      'Đề nghị phòng, đội an ninh khẩn trương rà soát và yêu cầu các cá nhân di chuyển phương tiện ra khỏi công ty, không tái diễn như đã cam kết, ' +
+      'trường hợp không hợp tác sẽ báo cáo thủ trưởng đơn vị xử lý, đồng thời thủ trưởng đơn vị nhắc nhở người lao động tuân thủ quy định.');
+  }
+
+  // Đoạn 4: phương tiện sắp hết hạn đăng kiểm (còn dưới 15 ngày)
   const soon = vehAll.filter(f => { const d = daysLeft(f); return d !== null && d >= 0 && d < 15; }).length;
-  S.push(`Xin báo cáo thêm có ${soon} phương tiện sắp hết hạn đăng kiểm trong 15 ngày tới.`);
-  S.push('Xin trân trọng cảm ơn.');
-  return S;
+  if (soon) P.push(`Ngoài ra, có ${soon} phương tiện sắp hết hạn đăng kiểm trong 15 ngày tới.`);
+
+  // Đoạn 5: kết
+  P.push(`Trên đây là tổng hợp tình hình an ninh khu vực ${SITE_SPOKEN}. Trân trọng báo cáo.`);
+  return P;
+}
+
+// Cắt đoạn thành các câu/cụm ngắn để đọc (giọng đọc trên điện thoại hay bị ngắt với câu quá dài)
+function speechChunks(par) {
+  const out = [];
+  par.match(/[^.]+\.?/g).map(x => x.trim()).filter(Boolean).forEach(sen => {
+    if (sen.length <= 180) { out.push(sen); return; }
+    let cur = '';
+    const parts = sen.split(/,\s+/);
+    parts.forEach((part, k) => { if (k < parts.length - 1) part += ',';
+      if (cur && (cur + ' ' + part).length > 180) { out.push(cur); cur = part; }
+      else cur = cur ? cur + ' ' + part : part;
+    });
+    if (cur) out.push(cur);
+  });
+  return out;
 }
 
 // ---- Chọn giọng: liệt kê mọi giọng tiếng Việt trên máy, nhớ lựa chọn cho lần sau ----
@@ -2863,9 +2903,17 @@ async function speakReport() {
   try { await loadCharts(false); } finally { $('speakBtn').disabled = false; }
   if (!lastAgg) { speakMsg('Chưa đọc được số liệu his.csv để tổng hợp.'); return; }
   speakMsg('');
-  const sents = buildReport();
+  const paras = buildReport();
   box.textContent = '';   // nội dung chỉ hiện khi bấm "📄 Chi tiết"
-  const spans = sents.map(t => { const sp = document.createElement('span'); sp.textContent = t + ' '; box.append(sp); return sp; });
+  const sents = [], spans = [];
+  paras.forEach(par => {
+    const p = document.createElement('p');
+    speechChunks(par).forEach(t => {
+      const sp = document.createElement('span'); sp.textContent = t + ' ';
+      p.append(sp); sents.push(t); spans.push(sp);
+    });
+    box.append(p);
+  });
   const voice = viVoice();
   if (!voice) speakMsg('⚠ Máy chưa có giọng đọc tiếng Việt nên có thể đọc sai. Cài giọng tiếng Việt trong Cài đặt của điện thoại.');
   const rate = +$('speakRate').value;
