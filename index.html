@@ -76,6 +76,10 @@
   #speakBtn{flex:1;font-size:15px;padding:10px}
   #stopBtn{padding:10px 12px}
   #speakRate{width:auto;padding:6px 8px;font-size:13px}
+  .langRow{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:-2px 0 10px;font-size:12px;color:var(--muted)}
+  #langSeg{display:flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+  #langSeg button{border-radius:0;background:#fff;color:var(--text);padding:6px 12px;font-size:13px}
+  #langSeg button.on{background:var(--accent);color:#fff}
   .speakBar .tgl{padding:10px 9px;font-size:13px}
   .speakBar .tgl.on{background:var(--hi);color:var(--accent)}
   #speakMsg{margin:-4px 0 10px;color:#b45309;font-size:12px;font-weight:600}
@@ -345,13 +349,16 @@
       </div>
     </details>
     <details class="sub" id="chartBox">
-      <summary>BIỂU ĐỒ 24H QUA</summary>
+      <summary>BÁO CÁO AN NINH 24H QUA</summary>
       <div class="body">
         <div class="speakBar">
           <button id="speakBtn">🔊 Tổng hợp</button>
           <button id="stopBtn" class="ghost" hidden>⏹ Dừng</button>
           <button id="toggleVoice" class="ghost tgl" type="button" aria-expanded="false" title="Chọn giọng đọc">⚙ Giọng</button>
           <button id="toggleText" class="ghost tgl" type="button" aria-expanded="false" title="Xem nội dung báo cáo">📄 Chi tiết</button>
+        </div>
+        <div class="langRow"><span>Ngôn ngữ báo cáo</span>
+          <div id="langSeg" role="group" aria-label="Ngôn ngữ báo cáo"><button type="button" data-lang="vi" class="on">Tiếng Việt</button><button type="button" data-lang="en">English</button></div>
         </div>
         <div id="speakMsg" hidden></div>
         <div class="voiceBar" id="voiceBar" hidden>
@@ -1695,7 +1702,7 @@ const norm = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[�
 const shortName = n => (n.includes('-') ? n.split('-')[0] : n.replace(/\.[^.]+$/, '')).trim().toLocaleUpperCase('vi');
 const pad = n => String(n).padStart(2, '0');
 const F2_MARK = '_2';
-const APP_VERSION = 'v26.11-a';   // đổi mỗi lần sửa để kiểm tra điện thoại đã nhận bản mới chưa
+const APP_VERSION = 'v26.11-d';   // đổi mỗi lần sửa để kiểm tra điện thoại đã nhận bản mới chưa
 let loadInfo = '';
 
 /* Đọc thông tin nằm trong tên file (tìm lần lượt từ trái qua phải):
@@ -2769,19 +2776,62 @@ const UNIT_NAMES = {
   "NTHN": "TRUNG TÂM BẢO DƯỠNG NỘI TRƯỜNG HÀ NỘI",
   "PC": "BAN PHÁP CHẾ",
   "PVBD": "TRUNG TÂM PHỤC VỤ BẢO DƯỠNG",
-  "HAI_AU": "HÃNG HÀNG KHÔNG HẢI ÂU",
+  "HAI_AU": "CÔNG TY HÀNG KHÔNG HẢI ÂU",
   "TCKT": "BAN TÀI CHÍNH KẾ TOÁN",
   "TCNL": "BAN TỔ CHỨC NHÂN LỰC",
   "THANG_LOI": "CÔNG TY THẮNG LỢI",
   "TTDT": "TRUNG TÂM ĐÀO TẠO",
   "VP": "VĂN PHÒNG CÔNG TY",
   "VPCT": "VĂN PHÒNG CÔNG TY",
-  "GAL": "CÔNG TY GAL",
+  "GAL": "CÔNG TY LƯỠNG DỤNG HÀNG KHÔNG TOÀN CẦU",
   "LAM_GIANG": "CÔNG TY LÂM GIANG",
   "BLUE_SKY": "CÔNG TY BẦU TRỜI XANH BLUE SKY",
   "AIRIMEX": "CÔNG TY AIRIMEX",
-  "SPA": "HÃNG HÀNG KHÔNG PHÚ QUỐC MẶT TRỜI",
-  "SUN_AIR": "HÃNG HÀNG KHÔNG SUN AIR"
+  "SPA": "HÃNG HÀNG KHÔNG MẶT TRỜI PHÚ QUỐC",
+  "SUN_AIR": "CÔNG TY SUN AIR",
+  "PTGD_PMH": "PHÓ TỔNG GIÁM ĐỐC PHẠM MINH HIỆP",
+  "PTGD_DTP": "PHÓ TỔNG GIÁM ĐỐC ĐÀO THIỆN PHAN",
+  "PTGD_PAT": "PHÓ TỔNG GIÁM ĐỐC PHẠM ANH TUẤN",
+  "PTGD_BKH": "PHÓ TỔNG GIÁM ĐỐC BÙI KHÁNH HỘI",
+  "TGD": "TỔNG GIÁM ĐỐC"
+};
+// Tên tiếng Anh (cột TEN_ENG) – dùng cho báo cáo English
+const UNIT_NAMES_EN = {
+  "AN": "SECURITY DEPARTMENT",
+  "ATCL": "SQD",
+  "BGD": "BOARD OF DIRECTORS",
+  "CNBDNT": "INTERIOR CENTER",
+  "CNDN": "CENTRAL REGIONAL BRANCH",
+  "CNHCM": "SOUTHERN REGIONAL BRANCH",
+  "CUVT": "LOGISTICS CENTER",
+  "DBCL": "SQD",
+  "DHBD": "MCC",
+  "KHKD": "PLANNING BUSINESS DEPARTMENT",
+  "KT": "TECHNICAL DEPARTMENT",
+  "NGTHCM": "HO CHI MINH LINE MAINTENANCE CENTER",
+  "NGTHN": "HA NOI LINE MAINTENANCE CENTER",
+  "NTHCM": "HO CHI MINH BASE MAINTENANCE CENTER",
+  "NTHN": "HA NOI BASE MAINTENANCE CENTER",
+  "PC": "LEGAL DEPARTMENT",
+  "PVBD": "SERVICE MAINTENANCE CENTER",
+  "HAI_AU": "HAI AU AVIATION COMPANY",
+  "TCKT": "FINANCE DEPARTMENT",
+  "TCNL": "HUMAN RESOURCE DEPARTMENT",
+  "THANG_LOI": "THANG LOI COMPANY",
+  "TTDT": "TRAINING CENTER",
+  "VP": "CORPORATE AFFAIRS DEPARTMENT",
+  "VPCT": "CORPORATE AFFAIRS DEPARTMENT",
+  "GAL": "GLOBAL AL JSC COMPANY",
+  "LAM_GIANG": "LAM GIANG COMPANY",
+  "BLUE_SKY": "BLUE SKY AIRWAYS",
+  "AIRIMEX": "AIRIMEX COMPANY",
+  "SPA": "SUN PHU QUOC AIRWAYS",
+  "SUN_AIR": "SUN AIR",
+  "PTGD_PMH": "Deputy General Director PHAM MINH HIEP",
+  "PTGD_DTP": "Deputy General Director DAO THIEN PHAN",
+  "PTGD_PAT": "Deputy General Director PHAM ANH TUAN",
+  "PTGD_BKH": "Deputy General Director BUI KHANH HOI",
+  "TGD": "General Director"
 };
 // Viết thường cho tự nhiên (chữ in hoa toàn bộ dễ bị đọc thành từng chữ cái)
 const niceName = t => { t = t.toLocaleLowerCase('vi'); return t.charAt(0).toLocaleUpperCase('vi') + t.slice(1); };
@@ -2790,57 +2840,111 @@ const spokenUnit = code => UNIT_NAMES[code] ? niceName(UNIT_NAMES[code])
 
 let lastAgg = null;   // số liệu biểu đồ 24h gần nhất (do renderCharts lưu lại)
 
-// Báo cáo gồm 5 đoạn; đoạn 3 và 4 chỉ có khi có số liệu. Trả về mảng các đoạn (mỗi đoạn là 1 chuỗi)
-function buildReport() {
+// Báo cáo gồm 5 đoạn; đoạn 3 và 4 chỉ có khi có số liệu. lang = 'vi' hoặc 'en'. Trả về mảng các đoạn
+const SITE_SPOKEN_EN = 'Tan Son Nhat';
+const SIGNER_VI = 'Thừa lệnh Phó tổng giám đốc phụ trách an ninh Phạm Minh Hiệp, trân trọng báo cáo.';
+const SIGNER_EN = 'By order of the Deputy General Director in charge of Security, Mr Pham Minh Hiep, respectfully reported.';
+const MONTHS_EN = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+// Tiếng Anh: dùng tên TEN_ENG; viết hoa chữ đầu mỗi từ cho dễ đọc, giữ nguyên các từ viết tắt
+const EN_ACRO = new Set(['SQD', 'MCC', 'JSC', 'AL', 'TSA', 'A08']);
+const titleEn = t => t.split(' ').map(w => EN_ACRO.has(w.toUpperCase()) ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+const unitEn = code => UNIT_NAMES_EN[code] ? titleEn(UNIT_NAMES_EN[code]) : code.replace(/_/g, ' ');
+const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+const joinList = (arr, and) => arr.length <= 1 ? arr.join('') : arr.slice(0, -1).join(', ') + ` ${and} ` + arr[arr.length - 1];
+
+function buildReport(lang) {
+  const en = lang === 'en';
   const a = lastAgg, now = new Date(), P = [];
   const tot = a.totIn + a.totOut;
   const pct = n => tot ? Math.round(n / tot * 100) : 0;
   const peak = list => list.reduce((b, x) => (x.vin + x.vout > (b ? b.vin + b.vout : 0) ? x : b), null);
   const am = peak(a.bins.filter(b => b.h < 12)), pm = peak(a.bins.filter(b => b.h >= 12));
-  const ptxt = p => p ? `${p.h} giờ, với ${p.vin + p.vout} lượt` : 'không có lượt nào';
   const top = [...a.byDept.entries()].sort((x, y) => y[1] - x[1]).slice(0, 3);
+  const uName = c => en ? unitEn(c) : spokenUnit(c);
+  const hhmm = `${now.getHours()}:${pad(now.getMinutes())}`;
 
   // Đoạn 1: tình hình ra vào 24 giờ qua (theo his.csv)
-  let p1 = `Báo cáo tổng hợp tình hình an ninh ${SITE_SPOKEN}, lúc ${now.getHours()} giờ ${now.getMinutes()}, ngày ${now.getDate()} tháng ${now.getMonth() + 1}. ` +
-    `Trong 24 giờ qua có ${tot} lượt ra vào, gồm ${a.totIn} lượt vào và ${a.totOut} lượt ra. ` +
-    `Giờ cao điểm buổi sáng là ${ptxt(am)}, và buổi chiều là ${ptxt(pm)}. `;
-  p1 += top.length
-    ? `Trong 24 giờ qua tổng cộng có ${a.byDept.size} đơn vị có khách và phương tiện, trong đó có ${['', 'một', 'hai', 'ba'][top.length]} đơn vị nhiều lượt nhất: ` +
-      top.map(([d, n]) => `${spokenUnit(d)} ${n} lượt chiếm ${pct(n)} phần trăm`).join(', ') + '.'
-    : 'Trong 24 giờ qua không có đơn vị nào có khách và phương tiện ra vào.';
-  P.push(p1);
+  if (en) {
+    const pk = p => p ? `${p.h} o'clock with ${plural(p.vin + p.vout, 'movement')}` : 'no movements';
+    let p1 = `General security report for ${SITE_SPOKEN_EN}, at ${hhmm} on ${now.getDate()} ${MONTHS_EN[now.getMonth()]}. ` +
+      `In the past 24 hours there were ${tot} entries and exits, including ${a.totIn} entries and ${a.totOut} exits. ` +
+      `The morning peak was at ${pk(am)}, and the afternoon peak was at ${pk(pm)}. `;
+    p1 += top.length
+      ? `In the past 24 hours, a total of ${plural(a.byDept.size, 'unit')} had visitors and vehicles, of which the ${['', 'unit', 'two units', 'three units'][top.length]} with the most movements ${top.length > 1 ? 'were' : 'was'}: ` +
+        top.map(([d, n]) => `${uName(d)} with ${plural(n, 'movement')}, accounting for ${pct(n)} percent`).join('; ') + '.'
+      : 'In the past 24 hours, no units had visitors or vehicles entering or leaving.';
+    P.push(p1);
+  } else {
+    const pk = p => p ? `${p.h} giờ, với ${p.vin + p.vout} lượt` : 'không có lượt nào';
+    let p1 = `Báo cáo tổng hợp tình hình an ninh ${SITE_SPOKEN}, lúc ${now.getHours()} giờ ${now.getMinutes()}, ngày ${now.getDate()} tháng ${now.getMonth() + 1}. ` +
+      `Trong 24 giờ qua có ${tot} lượt ra vào, gồm ${a.totIn} lượt vào và ${a.totOut} lượt ra. ` +
+      `Giờ cao điểm buổi sáng là ${pk(am)}, và buổi chiều là ${pk(pm)}. `;
+    p1 += top.length
+      ? `Trong 24 giờ qua tổng cộng có ${a.byDept.size} đơn vị có khách và phương tiện, trong đó có ${['', 'một', 'hai', 'ba'][top.length]} đơn vị nhiều lượt nhất: ` +
+        top.map(([d, n]) => `${uName(d)} ${n} lượt chiếm ${pct(n)} phần trăm`).join(', ') + '.'
+      : 'Trong 24 giờ qua không có đơn vị nào có khách và phương tiện ra vào.';
+    P.push(p1);
+  }
 
   // Đoạn 2: số lượng hiện tại (theo khung Thống kê)
   const zc = z => {
     const p = z.items.find(it => !it.vehicle), v = z.items.find(it => it.vehicle);
     const pp = all.filter(f => counted(f, p)), vv = all.filter(f => counted(f, v));
-    return { pp, vv, people: pp.length, veh: vv.length, vpnh: all.filter(f => f.f2 && counted(f, p)).length };
+    return { pp, vv, people: pp.length, veh: vv.length, vp: all.filter(f => f.f2 && counted(f, p)) };
   };
   const hc = zc(STAT_ZONES.find(z => z.cls === 'limit')), khc = zc(STAT_ZONES.find(z => z.cls === 'free'));
   const units = new Set([...hc.pp, ...hc.vv, ...khc.pp, ...khc.vv].map(f => f.unit).filter(u => u && u !== NO_UNIT));
-  P.push(`Hiện tại số lượng trong khu vực hạn chế: ${hc.people} người, ${hc.veh} phương tiện, ${hc.vpnh} vật phẩm nguy hiểm. ` +
-    `Khu vực không hạn chế có: ${khc.people} người, ${khc.veh} phương tiện. ` +
-    `Hiện tại đang có ${hc.people + khc.people} người và ${hc.veh + khc.veh} phương tiện của ${units.size} đơn vị đang ở trong công ty.`);
+  const vpUnits = [...new Set(hc.vp.map(f => f.unit).filter(u => u && u !== NO_UNIT))].map(uName);   // đơn vị có vật phẩm nguy hiểm
+  const nP = hc.people + khc.people, nV = hc.veh + khc.veh;
+  if (en) {
+    const vpTxt = hc.vp.length
+      ? `${plural(hc.vp.length, 'dangerous goods item')}${vpUnits.length ? ' of ' + joinList(vpUnits, 'and') : ''}`
+      : 'no dangerous goods items';
+    const be = n => n === 1 ? 'is' : 'are';
+    P.push(`Currently, in the restricted area there ${be(hc.people)} ${plural(hc.people, 'person').replace('persons', 'people')}, ${plural(hc.veh, 'vehicle')}, and ${vpTxt}. ` +
+      `In the non-restricted area there ${be(khc.people)} ${plural(khc.people, 'person').replace('persons', 'people')} and ${plural(khc.veh, 'vehicle')}. ` +
+      `In total, ${plural(nP, 'person').replace('persons', 'people')} and ${plural(nV, 'vehicle')} from ${plural(units.size, 'unit')} are currently on the company premises.`);
+  } else {
+    const vpTxt = hc.vp.length
+      ? `${hc.vp.length} danh mục vật phẩm nguy hiểm${vpUnits.length ? ' của ' + joinList(vpUnits, 'và') : ''}`
+      : 'không có danh mục vật phẩm nguy hiểm nào';
+    P.push(`Hiện tại số lượng trong khu vực hạn chế: ${hc.people} người, ${hc.veh} phương tiện, ${vpTxt}. ` +
+      `Khu vực không hạn chế có: ${khc.people} người, ${khc.veh} phương tiện. ` +
+      `Hiện tại đang có ${nP} người và ${nV} phương tiện của ${units.size} đơn vị đang ở trong công ty.`);
+  }
 
   // Đoạn 3: phương tiện cá nhân (Đ/K dài hạn) ở trong công ty quá 1 ngày – gom theo đơn vị
   const vehAll = all.filter(f => ALL_ITEMS.some(it => it.vehicle && counted(f, it)));
   const overstay = vehAll.filter(f => f.ptype === 'person' && hoursIn(f) !== null && hoursIn(f) >= 24);
   if (overstay.length) {
     const byU = new Map();
-    overstay.forEach(f => { const u = f.unit && f.unit !== NO_UNIT ? f.unit : 'KHÔNG RÕ'; byU.set(u, (byU.get(u) || 0) + 1); });
-    const list = [...byU.entries()].sort((x, y) => y[1] - x[1])
-      .map(([u, n]) => `${u === 'KHÔNG RÕ' ? 'đơn vị chưa rõ' : spokenUnit(u)} có ${n} phương tiện`).join(', ');
-    P.push(`Xin được báo cáo thêm, hiện đang có ${overstay.length} phương tiện đang để quá thời gian quy định, bao gồm phương tiện cá nhân của ${list}. ` +
-      'Đề nghị phòng, đội an ninh khẩn trương rà soát và yêu cầu các cá nhân di chuyển phương tiện ra khỏi công ty, không tái diễn như đã cam kết, ' +
-      'trường hợp không hợp tác sẽ báo cáo thủ trưởng đơn vị xử lý, đồng thời thủ trưởng đơn vị nhắc nhở người lao động tuân thủ quy định.');
+    overstay.forEach(f => { const u = f.unit && f.unit !== NO_UNIT ? f.unit : ''; byU.set(u, (byU.get(u) || 0) + 1); });
+    const rows = [...byU.entries()].sort((x, y) => y[1] - x[1]);
+    if (en) {
+      const list = rows.map(([u, n]) => `${u ? uName(u) : 'an unidentified unit'} with ${plural(n, 'vehicle')}`).join(', ');
+      P.push(`Additionally, there ${overstay.length === 1 ? 'is' : 'are'} currently ${plural(overstay.length, 'vehicle')} parked beyond the permitted time, including personal vehicles of ${list}. ` +
+        'The security department and teams are requested to urgently review and require the individuals to move their vehicles off the company premises, and not to repeat this as committed. ' +
+        'In case of non-cooperation, the matter will be reported to the head of the unit for handling; at the same time, unit heads are requested to remind their employees to comply with the regulations. ' +
+        'We look forward to everyone\'s cooperation to continuously improve security work and meet the requirements of the Security Authorities A08 and TSA - US Transportation Security Administration as well.');
+    } else {
+      const list = rows.map(([u, n]) => `${u ? uName(u) : 'đơn vị chưa rõ'} có ${n} phương tiện`).join(', ');
+      P.push(`Xin được báo cáo thêm, hiện đang có ${overstay.length} phương tiện đang để quá thời gian quy định, bao gồm phương tiện cá nhân của ${list}. ` +
+        'Đề nghị phòng, đội an ninh khẩn trương rà soát và yêu cầu các cá nhân di chuyển phương tiện ra khỏi công ty, không tái diễn như đã cam kết, ' +
+        'trường hợp không hợp tác sẽ báo cáo thủ trưởng đơn vị xử lý, đồng thời thủ trưởng đơn vị nhắc nhở người lao động tuân thủ quy định. ' +
+        'Rất mong nhận được sự hợp tác của mọi người để công tác an ninh ngày càng tốt hơn, đáp ứng yêu cầu nhà chức trách an ninh hàng không A08 và TSA - nhà chức trách an ninh vận tải Hoa Kỳ.');
+    }
   }
 
   // Đoạn 4: phương tiện sắp hết hạn đăng kiểm (còn dưới 15 ngày)
   const soon = vehAll.filter(f => { const d = daysLeft(f); return d !== null && d >= 0 && d < 15; }).length;
-  if (soon) P.push(`Ngoài ra, có ${soon} phương tiện sắp hết hạn đăng kiểm trong 15 ngày tới.`);
+  if (soon) P.push(en
+    ? `In addition, ${plural(soon, 'vehicle')} ${soon === 1 ? 'has its' : 'have their'} registration inspection expiring within the next 15 days.`
+    : `Ngoài ra, có ${soon} phương tiện sắp hết hạn đăng kiểm trong 15 ngày tới.`);
 
   // Đoạn 5: kết
-  P.push(`Trên đây là tổng hợp tình hình an ninh khu vực ${SITE_SPOKEN}. Trân trọng báo cáo.`);
+  P.push(en
+    ? `This concludes the general security report for the ${SITE_SPOKEN_EN} area. ${SIGNER_EN}`
+    : `Trên đây là tổng hợp tình hình an ninh khu vực ${SITE_SPOKEN}. ${SIGNER_VI}`);
   return P;
 }
 
@@ -2861,37 +2965,48 @@ function speechChunks(par) {
 }
 
 // ---- Chọn giọng: liệt kê mọi giọng tiếng Việt trên máy, nhớ lựa chọn cho lần sau ----
-const LS_VOICE = 'amo_voice', LS_RATE = 'amo_rate', LS_PITCH = 'amo_pitch';
+const LS_VOICE = 'amo_voice', LS_RATE = 'amo_rate', LS_PITCH = 'amo_pitch', LS_LANG = 'amo_lang';
 const lsG = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
 const lsS = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
-function viVoices() {
+let repLang = lsG(LS_LANG) === 'en' ? 'en' : 'vi';     // ngôn ngữ báo cáo
+const LANG_TAG = { vi: 'vi-VN', en: 'en-US' };
+function langVoices(lang) {
   const vs = ('speechSynthesis' in window) ? speechSynthesis.getVoices() : [];
-  const vi = vs.filter(v => /^vi/i.test(v.lang));
-  // Ưu tiên giọng chất lượng cao: "Nâng cao/Enhanced/Premium", giọng mạng của Google
-  const score = v => (/premium|enhanced|nâng cao|cao cấp/i.test(v.name) ? 3 : 0) + (/google/i.test(v.name) ? 2 : 0) + (v.localService === false ? 1 : 0);
-  return vi.sort((a, b) => score(b) - score(a));
+  const re = lang === 'en' ? /^en/i : /^vi/i;
+  // Ưu tiên giọng chất lượng cao: "Nâng cao/Enhanced/Premium", giọng mạng của Google; tiếng Anh ưu tiên Anh-Mỹ
+  const score = v => (/premium|enhanced|nâng cao|cao cấp|natural/i.test(v.name) ? 3 : 0) + (/google/i.test(v.name) ? 2 : 0) +
+    (v.localService === false ? 1 : 0) + (lang === 'en' && /en[-_]us/i.test(v.lang) ? 1 : 0);
+  return vs.filter(v => re.test(v.lang)).sort((a, b) => score(b) - score(a));
 }
 function fillVoices() {
-  const sel = $('speakVoice'), vs = viVoices(), saved = lsG(LS_VOICE);
+  const sel = $('speakVoice'), vs = langVoices(repLang), saved = lsG(LS_VOICE + '_' + repLang) || (repLang === 'vi' ? lsG(LS_VOICE) : null);
   sel.textContent = '';
-  if (!vs.length) { const o = document.createElement('option'); o.textContent = 'Chưa có giọng tiếng Việt'; o.value = ''; sel.append(o); return; }
-  vs.forEach(v => { const o = document.createElement('option'); o.value = v.name; o.textContent = v.name + (v.localService === false ? ' (online)' : ''); sel.append(o); });
+  if (!vs.length) { const o = document.createElement('option'); o.textContent = repLang === 'en' ? 'Chưa có giọng tiếng Anh' : 'Chưa có giọng tiếng Việt'; o.value = ''; sel.append(o); return; }
+  vs.forEach(v => { const o = document.createElement('option'); o.value = v.name; o.textContent = v.name + ` (${v.lang})` + (v.localService === false ? ' online' : ''); sel.append(o); });
   if (saved && vs.some(v => v.name === saved)) sel.value = saved;
 }
-function viVoice() {
-  const vs = viVoices(), want = $('speakVoice').value;
+function viVoice() {   // giọng đang chọn cho ngôn ngữ hiện tại
+  const vs = langVoices(repLang), want = $('speakVoice').value;
   return vs.find(v => v.name === want) || vs[0] || null;
+}
+function setLang(l) {
+  repLang = l; lsS(LS_LANG, l);
+  document.querySelectorAll('#langSeg button').forEach(b => b.classList.toggle('on', b.dataset.lang === l));
+  $('speakBtn').textContent = l === 'en' ? '🔊 Report' : '🔊 Tổng hợp';
+  fillVoices();
 }
 if ('speechSynthesis' in window) { speechSynthesis.getVoices(); speechSynthesis.onvoiceschanged = fillVoices; setTimeout(fillVoices, 300); }
 (() => { const r = lsG(LS_RATE), p = lsG(LS_PITCH); if (r) $('speakRate').value = r; if (p) $('speakPitch').value = p; })();
-$('speakVoice').onchange = () => lsS(LS_VOICE, $('speakVoice').value);
+$('speakVoice').onchange = () => lsS(LS_VOICE + '_' + repLang, $('speakVoice').value);
+document.querySelectorAll('#langSeg button').forEach(b => b.onclick = () => { if ('speechSynthesis' in window) $('stopBtn').click(); setLang(b.dataset.lang); });
+setLang(repLang);
 $('speakRate').onchange = () => lsS(LS_RATE, $('speakRate').value);
 $('speakPitch').onchange = () => lsS(LS_PITCH, $('speakPitch').value);
 $('voiceTest').onclick = () => {
   if (!('speechSynthesis' in window)) return;
   speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance('Xin chào, đây là giọng đọc báo cáo tình hình an ninh.');
-  const v = viVoice(); u.lang = 'vi-VN'; if (v) u.voice = v; u.rate = +$('speakRate').value; u.pitch = +$('speakPitch').value;
+  const u = new SpeechSynthesisUtterance(repLang === 'en' ? 'Hello, this is the security report voice.' : 'Xin chào, đây là giọng đọc báo cáo tình hình an ninh.');
+  const v = viVoice(); u.lang = LANG_TAG[repLang]; if (v) u.voice = v; u.rate = +$('speakRate').value; u.pitch = +$('speakPitch').value;
   speechSynthesis.speak(u);
 };
 
@@ -2903,7 +3018,7 @@ async function speakReport() {
   try { await loadCharts(false); } finally { $('speakBtn').disabled = false; }
   if (!lastAgg) { speakMsg('Chưa đọc được số liệu his.csv để tổng hợp.'); return; }
   speakMsg('');
-  const paras = buildReport();
+  const paras = buildReport(repLang);
   box.textContent = '';   // nội dung chỉ hiện khi bấm "📄 Chi tiết"
   const sents = [], spans = [];
   paras.forEach(par => {
@@ -2915,11 +3030,11 @@ async function speakReport() {
     box.append(p);
   });
   const voice = viVoice();
-  if (!voice) speakMsg('⚠ Máy chưa có giọng đọc tiếng Việt nên có thể đọc sai. Cài giọng tiếng Việt trong Cài đặt của điện thoại.');
+  if (!voice) speakMsg(repLang === 'en' ? '⚠ Máy chưa có giọng đọc tiếng Anh. Cài giọng English trong Cài đặt của điện thoại.' : '⚠ Máy chưa có giọng đọc tiếng Việt nên có thể đọc sai. Cài giọng tiếng Việt trong Cài đặt của điện thoại.');
   const rate = +$('speakRate').value;
   spans.forEach((sp, i) => {
     const u = new SpeechSynthesisUtterance(sents[i]);   // đọc từng câu: tránh bị ngắt giữa chừng với đoạn dài
-    u.lang = 'vi-VN'; if (voice) u.voice = voice; u.rate = rate; u.pitch = +$('speakPitch').value;
+    u.lang = LANG_TAG[repLang]; if (voice) u.voice = voice; u.rate = rate; u.pitch = +$('speakPitch').value;
     u.onstart = () => { spans.forEach(x => x.classList.remove('now')); sp.classList.add('now'); $('stopBtn').hidden = false; };
     if (i === spans.length - 1) u.onend = () => { sp.classList.remove('now'); $('stopBtn').hidden = true; };
     speechSynthesis.speak(u);
