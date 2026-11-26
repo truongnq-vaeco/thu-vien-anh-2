@@ -1702,7 +1702,7 @@ const norm = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[�
 const shortName = n => (n.includes('-') ? n.split('-')[0] : n.replace(/\.[^.]+$/, '')).trim().toLocaleUpperCase('vi');
 const pad = n => String(n).padStart(2, '0');
 const F2_MARK = '_2';
-const APP_VERSION = 'v26.11-d';   // đổi mỗi lần sửa để kiểm tra điện thoại đã nhận bản mới chưa
+const APP_VERSION = 'v26.11-e';   // đổi mỗi lần sửa để kiểm tra điện thoại đã nhận bản mới chưa
 let loadInfo = '';
 
 /* Đọc thông tin nằm trong tên file (tìm lần lượt từ trái qua phải):
@@ -2949,6 +2949,17 @@ function buildReport(lang) {
 }
 
 // Cắt đoạn thành các câu/cụm ngắn để đọc (giọng đọc trên điện thoại hay bị ngắt với câu quá dài)
+// Cách phát âm riêng cho từ viết tắt – chỉ áp dụng cho giọng đọc, chữ trên màn hình giữ nguyên
+// (A08 để giọng tiếng Việt tự đọc như bình thường)
+const SAY = {
+  vi: { TSA: 'ti ét ây', SQD: 'ét kiu đi', MCC: 'em xi xi' },   // đọc từng chữ cái kiểu tiếng Anh
+  en: { TSA: 'T S A', SQD: 'S Q D', MCC: 'M C C' }
+};
+function speechText(t, lang) {
+  const m = SAY[lang] || {};
+  return t.replace(/\b[A-Z0-9]{2,}\b/g, w => m[w] || w);
+}
+
 function speechChunks(par) {
   const out = [];
   par.match(/[^.]+\.?/g).map(x => x.trim()).filter(Boolean).forEach(sen => {
@@ -3033,7 +3044,7 @@ async function speakReport() {
   if (!voice) speakMsg(repLang === 'en' ? '⚠ Máy chưa có giọng đọc tiếng Anh. Cài giọng English trong Cài đặt của điện thoại.' : '⚠ Máy chưa có giọng đọc tiếng Việt nên có thể đọc sai. Cài giọng tiếng Việt trong Cài đặt của điện thoại.');
   const rate = +$('speakRate').value;
   spans.forEach((sp, i) => {
-    const u = new SpeechSynthesisUtterance(sents[i]);   // đọc từng câu: tránh bị ngắt giữa chừng với đoạn dài
+    const u = new SpeechSynthesisUtterance(speechText(sents[i], repLang));   // đọc từng câu: tránh bị ngắt giữa chừng với đoạn dài
     u.lang = LANG_TAG[repLang]; if (voice) u.voice = voice; u.rate = rate; u.pitch = +$('speakPitch').value;
     u.onstart = () => { spans.forEach(x => x.classList.remove('now')); sp.classList.add('now'); $('stopBtn').hidden = false; };
     if (i === spans.length - 1) u.onend = () => { sp.classList.remove('now'); $('stopBtn').hidden = true; };
